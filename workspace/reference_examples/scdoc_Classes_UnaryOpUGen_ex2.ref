@@ -1,0 +1,45 @@
+=== EXAMPLE: scdoc_Classes_UnaryOpUGen_ex2 ===
+
+DESCRIPTION: A very_dark mixed sound, with complex characteristics, featuring instant attack and compressed envelope, with static spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_dark
+  crest_factor_db: compressed
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: static
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 0.0000
+  harmonic_decay_rate: 0.0000
+  harmonic_regularity: 0.0000
+  pitch_clarity: 0.0000
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: 0.0000
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: UnaryOpUGen Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/UnaryOpUGen.html
+// Tags: UnaryOpUGen, Classes
+// ---
+// --- Example 2 ---
+a = WhiteNoise.ar; // a WhiteNoise
+b = a.squared; // a UnaryOpUGen.
+b.operator; // squared
+
+// sound example
+
+{ var a = LFSaw.ar(300).range(0, 2pi); a.sin * 0.1 }.play;
+
+// Plotting the "abs" unary operator (via the server):
+
+{ SinOsc.ar(300).abs }.plot

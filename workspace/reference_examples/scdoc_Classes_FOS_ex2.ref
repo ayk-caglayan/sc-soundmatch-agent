@@ -1,0 +1,58 @@
+=== EXAMPLE: scdoc_Classes_FOS_ex2 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 501 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 501.0658
+  harmonic_decay_rate: -8.3266
+  harmonic_regularity: 0.1731
+  pitch_clarity: 392.3590
+  inharmonicity: 0.0228
+  type: complex
+[filter]
+  spectral_slope: -10.5467
+  resonance_freq: 495.2637
+
+SUPERCOLLIDER CODE:
+// Title: FOS Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/FOS.html
+// Tags: FOS, Classes
+// ---
+// --- Example 2 ---
+(
+// same as OnePole
+{    var x;
+    x = LFTri.ar(0.4, 0, 0.99);
+    FOS.ar(LFSaw.ar(200, 0, 0.2), 1 - x.abs, 0.0, x)
+}.play;
+)
+
+(
+// same as OneZero
+{    var x;
+    x = LFTri.ar(0.4, 0, 0.99);
+    FOS.ar(LFSaw.ar(200, 0, 0.2), 1 - x.abs, x, 0.0)
+}.play;
+)
+
+(
+// same as OnePole, kr
+{    var x, ctl;
+    x = LFTri.kr(0.2, 0, 0.99);
+    ctl = FOS.kr(LFSaw.kr(8, 0, 0.2), 1 - x.abs, 0.0, x);
+    LFTri.ar(ctl * 200 + 500);
+}.play;
+)

@@ -1,0 +1,56 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex71 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 883 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 882.5431
+  harmonic_decay_rate: -14.4423
+  harmonic_regularity: 0.5079
+  pitch_clarity: 44.0537
+  inharmonicity: 0.0009
+  type: complex
+[filter]
+  spectral_slope: -3.3099
+  resonance_freq: 882.8613
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 71
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 71 ---
+{ EnvGen.kr(Env.perc, doneAction: Done.freeSelf) * SinOsc.ar(880,0,0.2) }.play;
+{ EnvGen.kr(Env.perc(1,0.005,1,4), doneAction: Done.freeSelf) * SinOsc.ar(880,0,0.2) }.play;
+
+{ EnvGen.kr(Env.perc, Impulse.kr(2)) * SinOsc.ar(880,0,0.2) }.play;
+{ EnvGen.kr(Env.perc, Dust.kr(3)) * SinOsc.ar(880,0,0.2) }.play;
+
+// for sustain envelopes a gate is required
+z = { arg gate=1; EnvGen.kr(Env.adsr, gate, doneAction: Done.freeSelf) * SinOsc.ar(880,0,0.2) }.play;
+z.release;
+
+(
+// randomly generated envelope
+z = { arg gate=1;
+    var env, n=32;
+    env = Env(
+                [0]++{1.0.rand.squared}.dup(n-1) ++ [0],
+                {rrand(0.005,0.2)}.dup(n),
+                \lin, n-8, 8 );
+    EnvGen.kr(env, gate, doneAction: Done.freeSelf) * LFTri.ar(220,0,0.4)
+}.play;
+)
+z.release;

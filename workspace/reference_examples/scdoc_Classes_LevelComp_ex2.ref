@@ -1,0 +1,68 @@
+=== EXAMPLE: scdoc_Classes_LevelComp_ex2 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 288 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 287.7867
+  harmonic_decay_rate: -2.9559
+  harmonic_regularity: 0.0228
+  pitch_clarity: 50.5742
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -3.2078
+  resonance_freq: 861.3281
+
+SUPERCOLLIDER CODE:
+// Title: LevelComp Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LevelComp.html
+// Tags: LevelComp, Classes
+// ---
+// --- Example 2 ---
+s.meter;
+s.play;
+
+// synthesize 2 test signals at level 0.1 (-20 dB), first on separate channels
+(
+{ var n = 2, level = 0.1, spread = 1, pan = 0;
+    LFPulse.ar({ 100.exprand(2000) } ! n).range(-1, 1) * level
+}.play;
+)
+
+// now mix/pan these 2 signals using Splay, level at 0.1 (-20dB)
+(
+x = { |spread = 1, level = 0.1, center = 0|
+    var n = 2;
+    var snd = LFPulse.ar({ 100.exprand(2000) } ! n).range(-1, 1);
+    var stereo = Splay.ar(snd, spread, level, center);
+    Peak.ar(stereo, Impulse.kr(2)).ampdb.poll(2);
+    stereo
+}.play;
+)
+
+// when we set full spread, panned to center:
+// the 2 signals are discrete, left and right
+// we see the energy-based levelComp applied (1/2.sqrt).ampdb = -3
+x.set(\spread, 1, \center, 0); // -20 - 3 = -23dB
+
+// no spread, panned center:
+// each signal decreases by 3dB as they move to the center (from the panning function)
+// and the two signals mix on each channel, so we get -20 dB
+x.set(\spread, 0, \center, 0); //  -20dB
+
+// no spread, panned fully right:
+// the signals fully mix in the right channel (+6 dB)
+x.set(\spread, 0, \center, 1); // -23 + 6 = -17db

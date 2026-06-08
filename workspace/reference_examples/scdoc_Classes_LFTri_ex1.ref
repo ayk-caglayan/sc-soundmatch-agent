@@ -1,0 +1,51 @@
+=== EXAMPLE: scdoc_Classes_LFTri_ex1 ===
+
+DESCRIPTION: A dark clean sound, with fm_or_inharmonic oscillator character around 407 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 406.9919
+  harmonic_decay_rate: -3.6614
+  harmonic_regularity: 0.2738
+  pitch_clarity: 31.6202
+  inharmonicity: 0.2668
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -23.7049
+  resonance_freq: 409.1309
+
+SUPERCOLLIDER CODE:
+// Title: LFTri Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LFTri.html
+// Tags: LFTri, Classes, modulation
+// ---
+// --- Example 1 ---
+// plot:
+{ LFTri.ar(40) }.plot(0.1);
+{ LFTri.ar(XLine.kr(1, 800, 0.1)) }.plot(0.1);
+
+{ LFTri.ar(500, 0, 0.1) }.play
+
+// used as both Oscillator and LFO:
+{ LFTri.ar(LFTri.kr(4, 0, 200, 400), 0, 0.1) }.play
+
+// phase. compare
+{ LFTri.ar(LFTri.kr(0.1, iphase: 0) * 200 + 400, 0, 0.1) }.play
+{ LFTri.ar(LFTri.kr(0.1, iphase: 1) * 200 + 400, 0, 0.1) }.play
+{ LFTri.ar(LFTri.kr(0.1, iphase: 2) * 200 + 400, 0, 0.1) }.play
+{ LFTri.ar(LFTri.kr(0.1, iphase: 3) * 200 + 400, 0, 0.1) }.play
+
+// together
+{ LFTri.ar(LFTri.kr(0.05, iphase: (0..3)) * 200 + 400, 0, 0.1).sum }.play

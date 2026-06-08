@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex3 ===
+
+DESCRIPTION: A dark gritty sound, with noise oscillator character around 954 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 954.1213
+  harmonic_decay_rate: -10.7065
+  harmonic_regularity: 0.7930
+  pitch_clarity: 25.2105
+  inharmonicity: 0.3023
+  type: noise
+[filter]
+  spectral_slope: -21.5752
+  resonance_freq: 818.2617
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 3 ---
+// cubic approximation of sine
+{ LFCub.ar(LFCub.kr(LFCub.kr(0.2,0,8,10),0, 400,800),0,0.1) }.play;
+{ LFCub.ar(LFCub.kr(0.2, 0, 400,800),0,0.1) }.play;
+{ LFCub.ar(800,0,0.1) }.play;
+{ LFCub.ar(XLine.kr(100,15000,6),0,0.1) }.play;

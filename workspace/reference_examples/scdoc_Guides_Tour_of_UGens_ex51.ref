@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex51 ===
+
+DESCRIPTION: A dark pure_tone sound, with fm_or_inharmonic oscillator character around 96 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: impulsive
+  envelope_flatness: dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 96.0373
+  harmonic_decay_rate: -7.7172
+  harmonic_regularity: 0.3998
+  pitch_clarity: 13.5798
+  inharmonicity: 0.4309
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -20.0865
+  resonance_freq: 193.7988
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 51
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 51 ---
+(
+{
+    // play with the room size
+    var x;
+    x = Klank.ar(`[[200, 671, 1153, 1723], nil, [1, 1, 1, 1]], Dust.ar(2, 0.1));
+    GVerb.ar(x, 105, 5, 0.7, 0.8, 60, 0.1, 0.5, 0.4) + x;
+}.play;
+)

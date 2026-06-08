@@ -1,0 +1,45 @@
+=== EXAMPLE: scdoc_Guides_FFT-Overview_ex9 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with square_like oscillator character around 50 Hz, featuring very_slow attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -9.0471
+  harmonic_regularity: 0.8522
+  pitch_clarity: 0.0000
+  inharmonicity: 0.0000
+  type: square_like
+[filter]
+  spectral_slope: -2.5094
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: FFT Overview Example 9
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/FFT-Overview.html
+// Tags: FFT-Overview, Guides, spectral
+// ---
+// --- Example 9 ---
+(
+x = { var inA, chainA, chainB;
+    inA = LFClipNoise.ar(100);
+    chainA = FFT(LocalBuf(2048, 1), inA);
+    chainB = PV_PhaseShift(chainA, pi);
+    // half-circle phase shift should result in an inverse signal
+    // in practice, ultra-low frequencies sneak through
+    // but you won't hear very much here
+    IFFT(chainA) + IFFT(chainB);
+}.play;
+)

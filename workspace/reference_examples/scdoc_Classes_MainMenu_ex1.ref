@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Classes_MainMenu_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 400 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 400.0000
+  harmonic_decay_rate: -15.9788
+  harmonic_regularity: 0.5007
+  pitch_clarity: 48.4231
+  inharmonicity: 0.0003
+  type: complex
+[filter]
+  spectral_slope: -6.2286
+  resonance_freq: 409.1309
+
+SUPERCOLLIDER CODE:
+// Title: MainMenu Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/MainMenu.html
+// Tags: MainMenu, Classes
+// ---
+// --- Example 1 ---
+(
+~testTone = MenuAction("Test Tone", {
+    { SinOsc.ar(400) * 0.1 }.play;
+});
+
+MainMenu.register(~testTone, "Tests");
+)
+
+MainMenu.unregister(~testTone); // to remove

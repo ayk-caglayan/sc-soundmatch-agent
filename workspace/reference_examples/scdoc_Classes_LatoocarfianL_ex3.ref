@@ -1,0 +1,44 @@
+=== EXAMPLE: scdoc_Classes_LatoocarfianL_ex3 ===
+
+DESCRIPTION: A bright clean sound, with complex oscillator character around 1838 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1837.9174
+  harmonic_decay_rate: -4.1159
+  harmonic_regularity: 0.7046
+  pitch_clarity: 17.8153
+  inharmonicity: 0.0014
+  type: complex
+[filter]
+  spectral_slope: -16.7603
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: LatoocarfianL Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LatoocarfianL.html
+// Tags: LatoocarfianL, Classes
+// ---
+// --- Example 3 ---
+// randomly modulate all params
+(
+{ LatoocarfianL.ar(
+    SampleRate.ir/4,
+    LFNoise2.kr(2, 1.5, 1.5),
+    LFNoise2.kr(2, 1.5, 1.5),
+    LFNoise2.kr(2, 0.5, 1.5),
+    LFNoise2.kr(2, 0.5, 1.5)
+) * 0.2 }.play(s);
+)

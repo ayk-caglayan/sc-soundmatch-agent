@@ -1,0 +1,57 @@
+=== EXAMPLE: scdoc_Classes_EnvGen_ex9 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -15.9883
+  harmonic_regularity: 0.5006
+  pitch_clarity: 72.4801
+  inharmonicity: 0.0002
+  type: complex
+[filter]
+  spectral_slope: -6.0285
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: EnvGen Example 9
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/EnvGen.html
+// Tags: EnvGen, Classes, envelope
+// ---
+// --- Example 9 ---
+// no, it doesn't take a ugen in ...
+(
+{
+    EnvGen.kr(
+        Env.asr(0.1, 1.0, 0.5, \welch),
+        1.0,
+        FSinOsc.ar(1.0).range(0.0, 1.0),
+        timeScale: 0.1
+    ) * SinOsc.ar(440, 0, 0.3)
+}.play;
+)
+
+// ...but an .ir rate input, a float or an ir rate ugen like Rand would work
+(
+{
+    EnvGen.kr(
+        Env.asr(0.1, 1.0, 0.5, \welch),
+        1.0,
+        Rand(0.1, 1.0),
+        timeScale: 0.1
+    ) * SinOsc.ar(440, 0, 0.3)
+}.play;
+)

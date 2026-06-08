@@ -1,0 +1,51 @@
+=== EXAMPLE: scdoc_Classes_LevelComp_ex3 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 66 Hz, featuring punchy attack and percussive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 65.5954
+  harmonic_decay_rate: 4.6219
+  harmonic_regularity: 0.2579
+  pitch_clarity: 35.1918
+  inharmonicity: 0.0237
+  type: complex
+[filter]
+  spectral_slope: -14.4675
+  resonance_freq: 236.8652
+
+SUPERCOLLIDER CODE:
+// Title: LevelComp Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LevelComp.html
+// Tags: LevelComp, Classes
+// ---
+// --- Example 3 ---
+(
+x = { |spread = 1, level = 0.1, center = 0|
+    var n = 20;
+    var snd = Splay.ar(LFPulse.ar({ 100.exprand(2000) } ! n).range(-1, 1),
+        spread, level, center);
+    Peak.ar(snd, 0.01, 1).ampdb.poll(1);
+    snd
+}.play;
+)
+
+// at full spread, level -20, pan to center:
+// peak is higher at -11 db
+x.set(\spread, 1, \center, 0);
+// with no spread, i.e. all panned center, slightly higher -10
+x.set(\spread, 0, \center, 0);
+// worst case: no spread, pan full left: -8db
+x.set(\spread, 0, \center, -1); // -8

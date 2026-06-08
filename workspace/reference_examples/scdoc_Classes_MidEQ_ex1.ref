@@ -1,0 +1,66 @@
+=== EXAMPLE: scdoc_Classes_MidEQ_ex1 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 606 Hz, featuring punchy attack and percussive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 606.2866
+  harmonic_decay_rate: -6.6207
+  harmonic_regularity: 0.6077
+  pitch_clarity: 19.3923
+  inharmonicity: 0.0070
+  type: complex
+[filter]
+  spectral_slope: -10.0756
+  resonance_freq: 581.3965
+
+SUPERCOLLIDER CODE:
+// Title: MidEQ Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/MidEQ.html
+// Tags: MidEQ, Classes
+// ---
+// --- Example 1 ---
+// mixer parametric eq as wahwah
+{ MidEQ.ar(Saw.ar(200, 0.2), FSinOsc.kr(1, 0, 24, 84).midicps, 0.3, 12) }.play
+
+
+// notch filter
+(
+{ var in;
+  in = PinkNoise.ar(0.2) + SinOsc.ar(600, 0, 0.1);
+  MidEQ.ar(in, SinOsc.kr(0.2, 0.5pi) * 2 + 600, 0.01, -24)
+}.play
+)
+
+/////
+// first start the synth
+(
+x = { |freq = 400, db = 0, rq = 0.1|
+     var in;
+     in =  SinOsc.ar([400, 420], 0, 0.4);
+     MidEQ.ar(in, freq, Lag.kr(rq, 0.3), db)
+    }.play
+)
+
+// now play with its parameters to hear how the filter affects two frequencies
+// that are very close to each other
+
+x.set(\db, -12)
+x.set(\rq, 0.1)
+x.set(\rq, 0.03)
+x.set(\freq, 410)
+x.set(\freq, 420)
+x.set(\freq, 400)
+x.set(\freq, 500)

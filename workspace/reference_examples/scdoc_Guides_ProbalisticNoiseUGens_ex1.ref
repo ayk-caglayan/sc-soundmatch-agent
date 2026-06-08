@@ -1,0 +1,53 @@
+=== EXAMPLE: scdoc_Guides_ProbalisticNoiseUGens_ex1 ===
+
+DESCRIPTION: A neutral mixed sound, with complex characteristics, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: neutral
+  crest_factor_db: impulsive
+  envelope_flatness: dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 0.0000
+  harmonic_decay_rate: 0.0000
+  harmonic_regularity: 0.0000
+  pitch_clarity: 1.3574
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -12.2079
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Probalistic Noise UGens Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/ProbalisticNoiseUGens.html
+// Tags: ProbalisticNoiseUGens, Guides, noise
+// ---
+// --- Example 1 ---
+(
+{ Pan2.ar(
+    SinOsc.ar(
+        Lag.ar(
+            LinExp.ar(
+                TBrownRand.ar(0, 1, 1.0, Dust.ar(8)),
+                0, 1,
+                120, 6000
+            ),
+            0.02
+        ),
+        mul: LFBrownNoise2.kr(6, 1.0, 0.4, 0.5)
+    ).squared *
+        Decay2.kr(GaussTrig.kr(8.0, 0.2), 0.02, 0.2),
+    Lag.kr(
+        TBetaRand.kr(-1.0, 1.0, Line.kr(4, 0.1, 5), Line.kr(2, 0.1, 5), Impulse.kr(8.0)),     0.2)
+    )
+}.play
+)

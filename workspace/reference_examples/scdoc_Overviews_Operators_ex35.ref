@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex35 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with fm_or_inharmonic oscillator character around 531 Hz, featuring instant attack and dynamic envelope, with dynamic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: dynamic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 530.8607
+  harmonic_decay_rate: -2.9824
+  harmonic_regularity: 0.0278
+  pitch_clarity: 30.9940
+  inharmonicity: 0.2104
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -4.0418
+  resonance_freq: 1593.4570
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 35
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 35 ---
+{ (FSinOsc.ar(800) sumsqr: FSinOsc.ar(XLine.kr(200,500,5))) * 0.125 }.play;

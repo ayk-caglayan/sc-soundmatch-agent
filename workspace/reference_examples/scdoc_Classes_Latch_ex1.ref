@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_Latch_ex1 ===
+
+DESCRIPTION: A dark clean sound, with fm_or_inharmonic oscillator character around 414 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 414.1060
+  harmonic_decay_rate: -4.1539
+  harmonic_regularity: 0.8871
+  pitch_clarity: 24.3350
+  inharmonicity: 0.3792
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -21.2854
+  resonance_freq: 581.3965
+
+SUPERCOLLIDER CODE:
+// Title: Latch Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Latch.html
+// Tags: Latch, Classes
+// ---
+// --- Example 1 ---
+{ Blip.ar(Latch.ar(WhiteNoise.ar, Impulse.ar(9)) * 400 + 500, 4, 0.2) }.play;

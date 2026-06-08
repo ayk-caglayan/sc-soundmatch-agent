@@ -1,0 +1,57 @@
+=== EXAMPLE: scdoc_Classes_BelaScope_ex3 ===
+
+DESCRIPTION: A very_dark mixed sound, with complex characteristics, featuring instant attack and compressed envelope, with static spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_dark
+  crest_factor_db: compressed
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: static
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 0.0000
+  harmonic_decay_rate: 0.0000
+  harmonic_regularity: 0.0000
+  pitch_clarity: 0.0000
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: 0.0000
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: BelaScope Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/BelaScope.html
+// Tags: BelaScope, Classes
+// ---
+// --- Example 3 ---
+~belaServer = Server.remote(\Bela, NetAddr("192.168.6.2", 57110));
+
+// UGens: usage like .poll
+// scope the LFNoise0, and still use it to modulate a SinOsc
+{ var freq = LFNoise0.kr.range(20, 2000); SinOsc.ar(freq.belaScope(0)) }.play(~belaServer)
+
+// scope an Array of UGens:
+{ var freq = LFNoise0.kr.range(20, 2000) ! 4; SinOsc.ar(freq.belaScope(0)) }.play(~belaServer)
+
+// Bus: scope 3 channels from bus number 10 on Bela Oscilloscope's channel 4
+b = Bus(\audio, 10, 6, ~belaServer);
+{ SinOsc.ar }.play(~belaServer, outbus: b);
+b.belaScope(4);
+
+// Server: usage like .play
+// scope busses 10 and 11 on Bela's Oscilloscope channel 2
+~belaServer.belaScope(2, 10, 2)
+// scope main output busses on Bela's Oscilloscope channel 0
+~belaServer.belaScope
+
+// Function: usage like .play
+// play and scope a multi-output function; scope starting on BelaScope channel 4
+{ SinOsc.ar(LFNoise0.ar([1, 2, 3]).exprange(20, 20000)) * LFNoise1.ar([1, 2, 3]).exprange(0.001, 0.1) }.belaScope(4, ~belaServer)

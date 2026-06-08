@@ -1,0 +1,40 @@
+=== EXAMPLE: scdoc_Tutorials_05-Functions-and-Sound_ex4 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: moderate
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -13.6282
+  harmonic_regularity: 0.5000
+  pitch_clarity: 241.7273
+  inharmonicity: 0.0010
+  type: complex
+[filter]
+  spectral_slope: -4.2091
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: 05. Functions and Sound Example 4
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Tutorials/Getting-Started/05-Functions-and-Sound.html
+// Tags: 05-Functions-and-Sound, Tutorials
+// ---
+// --- Example 4 ---
+(
+{ var ampOsc;
+    ampOsc = SinOsc.kr(0.5, 1.5pi, 0.5, 0.5);
+    SinOsc.ar(440, 0, ampOsc);
+}.play;
+)

@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Classes_LFPulse_ex7 ===
+
+DESCRIPTION: A bright pure_tone sound, with complex oscillator character around 100 Hz, featuring punchy attack and sustained envelope, with evolving spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: evolving
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 100.0000
+  harmonic_decay_rate: -3.4989
+  harmonic_regularity: 0.2712
+  pitch_clarity: 28.5578
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -19.0111
+  resonance_freq: 1162.7930
+
+SUPERCOLLIDER CODE:
+// Title: LFPulse Example 7
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LFPulse.html
+// Tags: LFPulse, Classes, oscillator, modulation
+// ---
+// --- Example 7 ---
+(
+{
+    [
+        Pulse.ar(100, 0.3, 0.5),
+        LFPulse.ar(100, 0, 0.3, 0.5)
+    ] * 0.2
+}.play
+)

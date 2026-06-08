@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex15 ===
+
+DESCRIPTION: A very_bright mixed sound, with sine_like oscillator character around 409 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 409.3564
+  harmonic_decay_rate: -5.2210
+  harmonic_regularity: 0.9918
+  pitch_clarity: 24.9258
+  inharmonicity: 0.8360
+  type: sine_like
+[filter]
+  spectral_slope: -2.9297
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 15
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 15 ---
+{ Saw.ar(XLine.kr(20000,200,6),0.2) }.play;
+{ Saw.ar(XLine.kr(100,15000,6),0.2) }.play; // no aliasing

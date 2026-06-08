@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_MoogLadder_ex1 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 60 Hz, featuring moderate attack and dynamic envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: moderate
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 60.1513
+  harmonic_decay_rate: -1.3441
+  harmonic_regularity: 0.0150
+  pitch_clarity: 39.7202
+  inharmonicity: 0.0026
+  type: complex
+[filter]
+  spectral_slope: -26.6876
+  resonance_freq: 150.7324
+
+SUPERCOLLIDER CODE:
+// Title: MoogLadder Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/MoogLadder.html
+// Tags: MoogLadder, Classes, filter
+// ---
+// --- Example 1 ---
+{ MoogLadder.ar(Mix(LFSaw.ar([120, 180], 0, 0.33)), LinExp.kr(LFCub.kr(0.1, 0.5*pi), -1, 1, 180, 8500), 0.75).dup }.play

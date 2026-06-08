@@ -1,0 +1,51 @@
+=== EXAMPLE: scdoc_Classes_DelayC_ex1 ===
+
+DESCRIPTION: A bright clean sound, with complex oscillator character around 1263 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, energy distribution is late, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: late
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1262.6066
+  harmonic_decay_rate: -4.3488
+  harmonic_regularity: 0.1782
+  pitch_clarity: 162.8882
+  inharmonicity: 0.0144
+  type: complex
+[filter]
+  spectral_slope: -6.0838
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: DelayC Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/DelayC.html
+// Tags: DelayC, Classes, reverb
+// ---
+// --- Example 1 ---
+(
+// Dust randomly triggers Decay to create an exponential
+// decay envelope for the WhiteNoise input source
+{
+z = Decay.ar(Dust.ar(1, 0.5), 0.3, WhiteNoise.ar);
+DelayC.ar(z, 0.2, 0.2, 1, z); // input is mixed with delay via the add input
+}.play
+)
+
+(
+// recursive application of delay.
+{
+z = Decay2.ar(Dust.ar(1, 0.5), 0.01, 0.1, Saw.ar(100 + [0, 1]));
+5.do { |i| z = DelayC.ar(RLPF.ar(z, Rand(100, 3000), 0.03), 1, 1 / (2**i), 1, z * 0.5) };
+z
+}.play
+)

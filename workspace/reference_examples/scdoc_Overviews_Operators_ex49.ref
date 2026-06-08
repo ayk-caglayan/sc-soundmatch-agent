@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex49 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 1002 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, energy distribution is late, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: late
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1002.1316
+  harmonic_decay_rate: -3.2695
+  harmonic_regularity: 0.0837
+  pitch_clarity: 203.8063
+  inharmonicity: 0.0006
+  type: complex
+[filter]
+  spectral_slope: -1.1963
+  resonance_freq: 1033.5938
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 49
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 49 ---
+(
+{
+    var a;
+    a = Line.ar(-2, 2, 0.01);
+    a.wrap2
+}.plot
+)
+
+{ FSinOsc.ar(1000).wrap2(Line.kr(0,1.01,8)) }.play;

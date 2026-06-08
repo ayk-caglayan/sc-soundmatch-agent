@@ -1,0 +1,46 @@
+=== EXAMPLE: scdoc_Classes_Balance2_ex1 ===
+
+DESCRIPTION: A dark pure_tone sound, with fm_or_inharmonic oscillator character around 1002 Hz, featuring instant attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1002.1316
+  harmonic_decay_rate: -12.7340
+  harmonic_regularity: 0.4105
+  pitch_clarity: 448.0182
+  inharmonicity: 0.3341
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -11.1405
+  resonance_freq: 990.5273
+
+SUPERCOLLIDER CODE:
+// Title: Balance2 Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Balance2.html
+// Tags: Balance2, Classes
+// ---
+// --- Example 1 ---
+// a stereo signal, both channels at 0dB
+{ [SinOsc.ar(440), SinOsc.ar(440)] }.play
+
+// using Balance on a stereo signal with the position parameter at 0, effectively the same sound but both channels at -3dB
+{ Balance2.ar(SinOsc.ar(440), SinOsc.ar(440), 0) }.play
+
+// pan sweep from left to right
+{ Balance2.ar(SinOsc.ar(440), SinOsc.ar(1000), Line.kr(-1, 1, 5)) }.play
+
+// other examples
+{ Balance2.ar(LFSaw.ar(44), Pulse.ar(33), FSinOsc.kr(0.5), 0.1) }.play;
+{ var source; source = SinOsc.ar([440, 550]); Balance2.ar(source[0], source[1], LFNoise0.kr(4), 0.3) }.play;

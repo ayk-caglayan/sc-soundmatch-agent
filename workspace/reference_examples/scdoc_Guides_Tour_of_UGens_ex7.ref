@@ -1,0 +1,37 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex7 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 400 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 400.0000
+  harmonic_decay_rate: -4.1974
+  harmonic_regularity: 0.1129
+  pitch_clarity: 26.0251
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -8.2665
+  resonance_freq: 1162.7930
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 7
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 7 ---
+{ LFPulse.ar(LFPulse.kr(LFPulse.kr(0.2,0,0.5,8,10),0,0.5, 400,800),0,0.5,0.1) }.play;
+{ LFPulse.ar(LFPulse.kr(3, 0, 0.3, 200, 200), 0, 0.2, 0.1) }.play;
+{ LFPulse.ar(XLine.kr(100,15000,6),0,0.5,0.1) }.play;

@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex66 ===
+
+DESCRIPTION: A very_dark gritty sound, with noise oscillator character around 650 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 649.8128
+  harmonic_decay_rate: -1.9162
+  harmonic_regularity: 0.8259
+  pitch_clarity: 16.0770
+  inharmonicity: 0.1368
+  type: noise
+[filter]
+  spectral_slope: -5.1526
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 66
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 66 ---
+(
+{
+    var trig;
+    trig = Dust.ar(2);
+    [(Trig1.ar(trig, 0.05) * FSinOsc.ar(600, 0, 0.2)),
+    (Trig1.ar(TDelay.ar(trig, 0.1), 0.05) * FSinOsc.ar(800, 0, 0.2))]
+}.play;
+)

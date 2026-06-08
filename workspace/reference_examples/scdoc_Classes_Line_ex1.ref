@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_Line_ex1 ===
+
+DESCRIPTION: A very_bright clean sound, with fm_or_inharmonic oscillator character around 1695 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1695.1410
+  harmonic_decay_rate: -0.0059
+  harmonic_regularity: 0.4450
+  pitch_clarity: 10.3032
+  inharmonicity: 0.1907
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -0.5471
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Line Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Line.html
+// Tags: Line, Classes, envelope
+// ---
+// --- Example 1 ---
+// XLine is usually better than Line for frequency
+play({ SinOsc.ar(Line.kr(200, 17000, 10), 0, 0.1) });

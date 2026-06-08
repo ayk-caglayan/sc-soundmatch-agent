@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_XLine_ex1 ===
+
+DESCRIPTION: A bright mixed sound, with saw_like oscillator character around 1338 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1337.6851
+  harmonic_decay_rate: -0.4106
+  harmonic_regularity: 0.8045
+  pitch_clarity: 33.0348
+  inharmonicity: 0.4882
+  type: saw_like
+[filter]
+  spectral_slope: -2.5164
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: XLine Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/XLine.html
+// Tags: XLine, Classes, envelope
+// ---
+// --- Example 1 ---
+play({ SinOsc.ar(XLine.kr(200, 17000, 10), 0, 0.1) });

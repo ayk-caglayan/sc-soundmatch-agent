@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_BrownNoise_ex1 ===
+
+DESCRIPTION: A bright clean sound, with sine_like oscillator character around 50 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -3.0248
+  harmonic_regularity: 0.9223
+  pitch_clarity: 9.0102
+  inharmonicity: 0.0394
+  type: sine_like
+[filter]
+  spectral_slope: -17.4256
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: BrownNoise Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/BrownNoise.html
+// Tags: BrownNoise, Classes, noise
+// ---
+// --- Example 1 ---
+{ BrownNoise.ar(0.1) }.play;
+{ WhiteNoise.ar(0.1) }.play;

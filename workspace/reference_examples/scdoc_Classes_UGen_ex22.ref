@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_UGen_ex22 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 919 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 918.9587
+  harmonic_decay_rate: -15.9858
+  harmonic_regularity: 0.5007
+  pitch_clarity: 100.2020
+  inharmonicity: 0.0024
+  type: complex
+[filter]
+  spectral_slope: -3.9747
+  resonance_freq: 925.9277
+
+SUPERCOLLIDER CODE:
+// Title: UGen Example 22
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/UGen.html
+// Tags: UGen, Classes
+// ---
+// --- Example 22 ---
+{ { SinOsc.ar(Rand(200, 4000), 0, 0.2) }.dup }.plot // these are different UGens

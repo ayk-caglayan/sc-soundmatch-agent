@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_LFPulse_ex3 ===
+
+DESCRIPTION: A neutral mixed sound, with saw_like oscillator character around 55 Hz, featuring instant attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: neutral
+  crest_factor_db: dynamic
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 55.1599
+  harmonic_decay_rate: -1.5442
+  harmonic_regularity: 0.8816
+  pitch_clarity: 4.8539
+  inharmonicity: 0.5253
+  type: saw_like
+[filter]
+  spectral_slope: -10.3061
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: LFPulse Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LFPulse.html
+// Tags: LFPulse, Classes, oscillator, modulation
+// ---
+// --- Example 3 ---
+{ LFPulse.ar(XLine.kr(1, 200, 10), 0, 0.2, 0.1) }.play;

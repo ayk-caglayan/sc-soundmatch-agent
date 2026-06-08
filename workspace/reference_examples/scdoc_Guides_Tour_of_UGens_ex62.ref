@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex62 ===
+
+DESCRIPTION: A very_bright noisy sound, with noise oscillator character around 52 Hz, featuring punchy attack and impulsive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: noisy
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.6142
+  harmonic_decay_rate: 0.0205
+  harmonic_regularity: 0.0366
+  pitch_clarity: 0.8441
+  inharmonicity: 0.0420
+  type: noise
+[filter]
+  spectral_slope: -0.0362
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 62
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 62 ---
+{ WhiteNoise.ar * Decay2.ar(Impulse.ar(1), 0.2, 0.9, 0.2) }.play;
+{ WhiteNoise.ar * Decay2.ar(Dust.ar(3), 0.2, 0.9, 0.2) }.play;

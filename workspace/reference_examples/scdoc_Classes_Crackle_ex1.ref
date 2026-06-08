@@ -1,0 +1,38 @@
+=== EXAMPLE: scdoc_Classes_Crackle_ex1 ===
+
+DESCRIPTION: A bright pure_tone sound, with complex oscillator character around 1903 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1902.7314
+  harmonic_decay_rate: -0.6512
+  harmonic_regularity: 0.5985
+  pitch_clarity: 0.0000
+  inharmonicity: 0.0239
+  type: complex
+[filter]
+  spectral_slope: -9.0225
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Crackle Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Crackle.html
+// Tags: Crackle, Classes, noise
+// ---
+// --- Example 1 ---
+{ Crackle.ar(1.95, 0.5) }.play;
+
+// modulate chaos parameter
+{ Crackle.ar(Line.kr(1.0, 2.0, 3), 0.5, 0.5) }.play;

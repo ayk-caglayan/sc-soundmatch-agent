@@ -1,0 +1,53 @@
+=== EXAMPLE: scdoc_Classes_Dtag_ex4 ===
+
+DESCRIPTION: A very_dark mixed sound, with complex characteristics, featuring instant attack and compressed envelope, with static spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_dark
+  crest_factor_db: compressed
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: static
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 0.0000
+  harmonic_decay_rate: 0.0000
+  harmonic_regularity: 0.0000
+  pitch_clarity: 0.0000
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: 0.0000
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Dtag Example 4
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Dtag.html
+// Tags: Dtag, Classes
+// ---
+// --- Example 4 ---
+// One of the examples by Emil Post
+// printout: "|" represents the tag, ">" represents the end of the string.
+// the printout is limited to 32 characters
+(
+{
+    var tag, trig;
+    trig = Impulse.kr(2); // advance 2 times a second
+    tag = Dtag(
+        2048, // maximum string size
+        3, // advance three steps each turn
+        [1, 0, 1], // axiom
+        [[1, 0], [1, 1, 0, 1]], // rules
+        0, // no recycle
+        5 // print mode
+    );
+    Demand.kr(trig, 0, tag);
+    0.0 // silence for now
+}.play;
+)

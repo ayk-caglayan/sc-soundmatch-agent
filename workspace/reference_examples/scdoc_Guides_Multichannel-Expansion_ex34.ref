@@ -1,0 +1,57 @@
+=== EXAMPLE: scdoc_Guides_Multichannel-Expansion_ex34 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with saw_like oscillator character around 579 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 578.9077
+  harmonic_decay_rate: -1.5876
+  harmonic_regularity: 0.9939
+  pitch_clarity: 3.2788
+  inharmonicity: 0.4504
+  type: saw_like
+[filter]
+  spectral_slope: -18.9268
+  resonance_freq: 645.9961
+
+SUPERCOLLIDER CODE:
+// Title: Multichannel Expansion Example 34
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Multichannel-Expansion.html
+// Tags: Multichannel-Expansion, Guides
+// ---
+// --- Example 34 ---
+(
+{
+    var n;
+    n = 8; // number of 'voices'
+    Mix.new( // mix all stereo pairs down.
+        Pan2.ar( // pan the voice to a stereo position
+            CombL.ar( // a comb filter used as a string resonator
+                Dust.ar( // random impulses as an excitation function
+                    // an array to cause expansion of Dust to n channels
+                    // 1 means one impulse per second on average
+                    Array.fill(n, 1),
+                    0.3 // amplitude
+                ),
+                0.01, // max delay time in seconds
+                // array of different random lengths for each 'string'
+                Array.fill(n, {0.004.rand+0.0003}),
+                4 // decay time in seconds
+            ),
+            Array.fill(n,{1.0.rand2}) // give each voice a different pan position
+        )
+    )
+}.play;
+)

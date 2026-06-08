@@ -1,0 +1,115 @@
+=== EXAMPLE: scdoc_Classes_Env_ex20 ===
+
+DESCRIPTION: A dark pure_tone sound, with fm_or_inharmonic oscillator character around 1401 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1400.9498
+  harmonic_decay_rate: -11.5485
+  harmonic_regularity: 0.5009
+  pitch_clarity: 63.5572
+  inharmonicity: 0.2920
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -3.1742
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Env Example 20
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Env.html
+// Tags: Env, Classes, envelope
+// ---
+// --- Example 20 ---
+(
+{
+    var env = Env([0.0, 0.5, 0.0, [1.0, 1.25, 1.5], 0.9, 0.0], [0.05, 0.1, 0.01, 1.0, 1.5], -4);
+    var envgen = EnvGen.ar(env, doneAction: Done.freeSelf);
+    SinOsc.ar(
+        envgen * 1000 + 440
+    ) * envgen * 0.1
+}.play
+);
+
+(
+{
+    var env = Env([1, [1, 2, 3], 0.5, 0.5, [3, 2, 1], 2], [1, 1, 0.5, 1], [[\exp, \sin]]);
+    env.plot;
+    Splay.ar(SinOsc.ar(EnvGen.kr(env) * 400 + 600)) * 0.1
+}.play;
+);
+
+
+(
+{
+    var levels = (1..30);
+    var env = Env([1, levels, 0.5, levels / 2.5, 2], [1, 0.15, 1, 0.25, 0.1], \exp);
+    Splay.ar(SinOsc.ar(EnvGen.kr(env) * 400 + 600)) * 0.1
+}.play;
+);
+
+
+// accessing the envelope by indexing
+
+e = Env([1, [1, 2, 3], 1], [1, 1], \exp);
+e.at(0.5);
+e.at(1.8);
+e.at(2);
+
+e = Env([1, 1, 1], [1, [1, 2, 3]], \exp);
+e.at(0.5);
+e.at(2);
+
+
+// multichannel levels
+
+Env([0.1, 1, 0.1], [1, [1, 2, 3]], \exp).plot;
+Env([0.1, 1, 0.1], [1, [1, 2, 3]], [\lin, [\lin, \exp, \sin]]).plot;
+
+Env([1, 1, 0.5, 3, 2], [1, 0.5, 1, 0.25], \exp).plot;
+Env([0, 1, 0, 2, 0] * [[1, 2, 3]], [1, 0.5, 1, 0.25], \lin).plot;
+
+
+// multichannel curves
+
+Env([0.01, 5, 1, 0.5] + 1, [1, 0.5, 1, 0.25], [[\lin, \sqr]]).plot;
+
+Env([0.01, 5, 1, 0.5, 0.001] + 1, [1, 0.5, 1, 0.25, 1], [[\lin, \cub, \sin, \cubed, \welch, \step, \exp]]).plot(bounds: Rect(30, 100, 500, 700));
+
+Env([0.01, 5, 1, 0.5, 0.001] + 1, [1, 0.5, 1, 0.25, 1], [(-4..4)]).plot(bounds: Rect(30, 100, 500, 700));
+Env([0.01, 5, 1, 0.5] + 1, [1, 0.5, 1, 0.25], [(-4..4)]).plot(bounds: Rect(30, 100, 500, 700));
+
+
+Env([[0, 0.01], 1, 0], [0.5, 0.5], [[\lin, \exp], \step]).plot;
+Env([[0, 0.01], 1, [0, 0.01]], [0.5, 1], [[\lin, \exp]]).plot;
+
+// multichannel times
+
+Env([[2, 1], 0], [[1, 2]], \lin).plot;
+Env([0, 1], [1/(1..5)], [(-4..4)]).plot(bounds: Rect(30, 100, 300, 700));
+Env([0, 1], [1/(1..5)], \lin).plot(bounds: Rect(30, 100, 300, 700));
+
+
+// mixed expansions
+
+Env([1, [1, 2, 3, 4, 5], 0.5, [3, 2, 1], 2], [1, 0.5, 1, 0.25], [[\exp, \lin]]).plot;
+Env([1, [1, 2, 3, 4, 5], 0.5, 4, 2], [1, 0.5, 1, 0.25], \exp).plot;
+
+
+// expanding control point envelopes
+
+Env.xyc([[2, 0.5, [\lin, \exp]], [0, 1, \lin], [3, 1.4, \lin]]).plot;
+Env.xyc({ [1.0.rand, 1.0.rand, { [\lin, \exp, \step].choose } ! 3] } ! 8).plot
+
+Env.xyc([[[2.0, 2.3], 0.5, \lin], [0, 1, \lin], [3, 1.4, \lin]]).plot; // multiple times

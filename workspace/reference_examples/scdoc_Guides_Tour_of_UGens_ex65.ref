@@ -1,0 +1,38 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex65 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 800 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, energy distribution is early, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: percussive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: early
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -3.0764
+  harmonic_regularity: 0.5480
+  pitch_clarity: 19.7401
+  inharmonicity: 0.0034
+  type: complex
+[filter]
+  spectral_slope: -1.8204
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 65
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 65 ---
+// amplitude determined by amplitude of trigger
+{ Trig.ar(Dust.ar(2), 0.2) * FSinOsc.ar(800, 0, 0.4) }.play;
+// amplitude always the same.
+{ Trig1.ar(Dust.ar(2), 0.2) * FSinOsc.ar(800, 0, 0.4) }.play

@@ -1,0 +1,37 @@
+=== EXAMPLE: scdoc_Classes_Trig_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 800 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, energy distribution is late, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: percussive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: late
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -4.2053
+  harmonic_regularity: 0.5496
+  pitch_clarity: 79.6647
+  inharmonicity: 0.0050
+  type: complex
+[filter]
+  spectral_slope: -2.5644
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Trig Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Trig.html
+// Tags: Trig, Classes
+// ---
+// --- Example 1 ---
+{ Trig.ar(Dust.ar(1), 0.2) * FSinOsc.ar(800, 0.5) }.play
+
+{ Trig.ar(Dust.ar(4), 0.1) }.play

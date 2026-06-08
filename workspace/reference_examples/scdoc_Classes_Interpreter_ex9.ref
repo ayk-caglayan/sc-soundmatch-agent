@@ -1,0 +1,40 @@
+=== EXAMPLE: scdoc_Classes_Interpreter_ex9 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 201 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 201.1586
+  harmonic_decay_rate: -16.9000
+  harmonic_regularity: 0.5863
+  pitch_clarity: 49.7275
+  inharmonicity: 0.0029
+  type: complex
+[filter]
+  spectral_slope: -5.7913
+  resonance_freq: 193.7988
+
+SUPERCOLLIDER CODE:
+// Title: Interpreter Example 9
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Interpreter.html
+// Tags: Interpreter, Classes
+// ---
+// --- Example 9 ---
+// silly but simple: understand a Saw for every SinOsc
+this.preProcessor = { |code| code.replace("SinOsc", "Saw") };
+
+{ SinOsc.ar(200) * 0.1 }.play;
+
+preProcessor = nil; // reset to nil.

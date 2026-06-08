@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_QuadN_ex2 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 1838 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1837.9174
+  harmonic_decay_rate: -3.2501
+  harmonic_regularity: 0.1088
+  pitch_clarity: 12.3185
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -13.4759
+  resonance_freq: 16537.5000
+
+SUPERCOLLIDER CODE:
+// Title: QuadN Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/QuadN.html
+// Tags: QuadN, Classes
+// ---
+// --- Example 2 ---
+// default params
+{ QuadN.ar(SampleRate.ir/4) * 0.2 }.play(s);

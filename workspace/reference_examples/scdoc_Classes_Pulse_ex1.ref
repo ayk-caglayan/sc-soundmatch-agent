@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Classes_Pulse_ex1 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 50 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: 4.0839
+  harmonic_regularity: 0.1273
+  pitch_clarity: 48.7600
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -15.4451
+  resonance_freq: 193.7988
+
+SUPERCOLLIDER CODE:
+// Title: Pulse Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Pulse.html
+// Tags: Pulse, Classes, oscillator
+// ---
+// --- Example 1 ---
+// modulate frequency
+{ Pulse.ar(XLine.kr(40, 4000, 6), 0.1, 0.2) }.play;
+
+// modulate pulse width
+{ Pulse.ar(200, SinOsc.kr(0.2).range(0.01, 0.99), 0.2) }.play;
+
+// two band limited square waves thru a resonant low pass filter
+{ RLPF.ar(Pulse.ar([100, 250], 0.5, 0.1), XLine.kr(8000, 400, 5), 0.05) }.play;

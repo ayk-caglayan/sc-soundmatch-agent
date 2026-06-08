@@ -1,0 +1,47 @@
+=== EXAMPLE: scdoc_Classes_LatoocarfianL_ex4 ===
+
+DESCRIPTION: A very_bright gritty sound, with complex oscillator character around 53 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 52.6681
+  harmonic_decay_rate: -0.4740
+  harmonic_regularity: 0.6684
+  pitch_clarity: 49.6597
+  inharmonicity: 0.0375
+  type: complex
+[filter]
+  spectral_slope: -27.4599
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: LatoocarfianL Example 4
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LatoocarfianL.html
+// Tags: LatoocarfianL, Classes
+// ---
+// --- Example 4 ---
+(
+{ LatoocarfianL.ar(
+    SampleRate.ir/4,
+    [LFDNoise0, LFClipNoise, LFDNoise1, LFDNoise3,
+        LFNoise0, LFNoise1, LFNoise2].choose.kr(rrand(2, 20), rrand(2, 20)*0.1, rrand(2, 20)*0.2),
+        [LFDNoise0, LFClipNoise, LFDNoise1, LFDNoise3,
+        LFNoise0, LFNoise1, LFNoise2].choose.kr(rrand(2, 20), rrand(2, 20)*0.1, rrand(2, 20)*0.2),
+        [LFDNoise0, LFClipNoise, LFDNoise1, LFDNoise3,
+        LFNoise0, LFNoise1, LFNoise2].choose.kr(rrand(2, 20), rrand(2, 20)*0.1, rrand(2, 20)*0.2),
+        [LFDNoise0, LFClipNoise, LFDNoise1, LFDNoise3,
+        LFNoise0, LFNoise1, LFNoise2].choose.kr(rrand(2, 20), rrand(2, 20)*0.1, rrand(2, 20)*0.2)
+) * 0.2 !2 }.play;
+)

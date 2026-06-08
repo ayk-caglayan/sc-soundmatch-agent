@@ -1,0 +1,44 @@
+=== EXAMPLE: scdoc_Classes_LatoocarfianN_ex3 ===
+
+DESCRIPTION: A dark clean sound, with complex oscillator character around 1838 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, energy distribution is front_heavy, filtered with steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: front_heavy
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1837.9174
+  harmonic_decay_rate: -0.6170
+  harmonic_regularity: 0.5687
+  pitch_clarity: 6.6908
+  inharmonicity: 0.0009
+  type: complex
+[filter]
+  spectral_slope: -2.9742
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: LatoocarfianN Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LatoocarfianN.html
+// Tags: LatoocarfianN, Classes
+// ---
+// --- Example 3 ---
+// randomly modulate all params
+(
+{ LatoocarfianN.ar(
+    SampleRate.ir/4,
+    LFNoise2.kr(2, 1.5, 1.5),
+    LFNoise2.kr(2, 1.5, 1.5),
+    LFNoise2.kr(2, 0.5, 1.5),
+    LFNoise2.kr(2, 0.5, 1.5)
+) * 0.2 }.play(s);
+)

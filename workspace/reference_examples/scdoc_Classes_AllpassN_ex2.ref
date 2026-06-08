@@ -1,0 +1,64 @@
+=== EXAMPLE: scdoc_Classes_AllpassN_ex2 ===
+
+DESCRIPTION: A very_bright mixed sound, with complex oscillator character around 51 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.4651
+  harmonic_decay_rate: -0.0117
+  harmonic_regularity: 0.0107
+  pitch_clarity: 3.8356
+  inharmonicity: 0.0306
+  type: complex
+[filter]
+  spectral_slope: 0.0123
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: AllpassN Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/AllpassN.html
+// Tags: AllpassN, Classes, reverb
+// ---
+// --- Example 2 ---
+// Since the allpass delay has no audible effect as a resonator on
+// steady state sound ...
+
+{ AllpassN.ar(WhiteNoise.ar(0.1), 0.01, XLine.kr(0.0001, 0.01, 20), 0.2) }.play;
+
+// ...these examples add the input to the effected sound and compare variants so that you can hear
+// the effect of the phase comb:
+
+(
+{
+    z = WhiteNoise.ar(0.2);
+    z + AllpassN.ar(z, 0.01, XLine.kr(0.0001, 0.01, 20), 0.2)
+}.play)
+
+(
+{
+    z = WhiteNoise.ar(0.2);
+    z + AllpassL.ar(z, 0.01, XLine.kr(0.0001, 0.01, 20), 0.2)
+}.play)
+
+(
+{
+    z = WhiteNoise.ar(0.2);
+    z + AllpassC.ar(z, 0.01, XLine.kr(0.0001, 0.01, 20), 0.2)
+}.play)
+
+// used as an echo - doesn't really sound different than Comb,
+// but it outputs the input signal immediately (inverted) and the echoes
+// are lower in amplitude.
+{ AllpassN.ar(Decay.ar(Dust.ar(1, 0.5), 0.2, WhiteNoise.ar), 0.2, 0.2, 3) }.play;

@@ -1,0 +1,72 @@
+=== EXAMPLE: scdoc_Classes_Median_ex1 ===
+
+DESCRIPTION: A very_bright clean sound, with complex oscillator character around 501 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 501.0658
+  harmonic_decay_rate: -3.2396
+  harmonic_regularity: 0.8927
+  pitch_clarity: 16.0249
+  inharmonicity: 0.0008
+  type: complex
+[filter]
+  spectral_slope: -11.4035
+  resonance_freq: 495.2637
+
+SUPERCOLLIDER CODE:
+// Title: Median Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Median.html
+// Tags: Median, Classes
+// ---
+// --- Example 1 ---
+// a signal with impulse noise.
+{ Saw.ar(500, 0.1) + Dust2.ar(100, 0.9) }.play;
+
+// after applying median filter
+{ Median.ar(3, Saw.ar(500, 0.1) + Dust2.ar(100, 0.9)) }.play;
+
+// The median length can be increased for longer duration noise.
+
+// a signal with longer impulse noise.
+{ Saw.ar(500, 0.1) + LPZ1.ar(Dust2.ar(100, 0.9)) }.play;
+
+// length 3 doesn't help here because the impulses are 2 samples long.
+{ Median.ar(3, Saw.ar(500, 0.1) + LPZ1.ar(Dust2.ar(100, 0.9))) }.play;
+
+// length 5 does better
+{ Median.ar(5, Saw.ar(500, 0.1) + LPZ1.ar(Dust2.ar(100, 0.9))) }.play;
+
+// long Median filters begin chopping off the peaks of the waveform
+(
+{
+    x = SinOsc.ar(1000, 0, 0.2);
+    [x, Median.ar(31, x)]
+}.play;
+)
+
+// another noise reduction application:
+
+Synth.play({ WhiteNoise.ar(0.1) + SinOsc.ar(800, 0, 0.1) });
+
+// use Median filter for high frequency noise
+Synth.play({ Median.ar(31, WhiteNoise.ar(0.1) + SinOsc.ar(800, 0, 0.1)) });
+
+(
+// use LeakDC for low frequency noise
+Synth.play({
+    LeakDC.ar(Median.ar(31, WhiteNoise.ar(0.1) + SinOsc.ar(800, 0, 0.1)), 0.9)
+});
+)

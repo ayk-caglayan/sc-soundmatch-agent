@@ -1,0 +1,41 @@
+=== EXAMPLE: scdoc_Classes_RHPF_ex1 ===
+
+DESCRIPTION: A very_dark mixed sound, with complex oscillator character around 501 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 501.0658
+  harmonic_decay_rate: -13.0504
+  harmonic_regularity: 0.6678
+  pitch_clarity: 338.8511
+  inharmonicity: 0.0839
+  type: complex
+[filter]
+  spectral_slope: -18.2368
+  resonance_freq: 495.2637
+
+SUPERCOLLIDER CODE:
+// Title: RHPF Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/RHPF.html
+// Tags: RHPF, Classes, filter
+// ---
+// --- Example 1 ---
+{ RHPF.ar(Saw.ar(200, 0.1), FSinOsc.kr(XLine.kr(0.7, 300, 20), 0, 3600, 4000), 0.2) }.play;
+
+(
+{     var ctl = RHPF.kr(LFSaw.kr(2), SinOsc.kr(XLine.kr(0.07, 30, 20), 0, 35, 40), 0.05);
+    SinOsc.ar(ctl * 200 + 500);
+}.play;
+)

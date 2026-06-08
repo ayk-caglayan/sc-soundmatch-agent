@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Reference_if_ex2 ===
+
+DESCRIPTION: A bright pure_tone sound, with complex oscillator character around 441 Hz, featuring instant attack and sustained envelope, with evolving spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: evolving
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -6.4266
+  harmonic_regularity: 0.7406
+  pitch_clarity: 342.0983
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -7.5395
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: if Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Reference/if.html
+// Tags: if, Reference
+// ---
+// --- Example 2 ---
+(
+    {
+        if( LFNoise1.kr(1.0,0.5,0.5) , SinOsc.ar, Saw.ar )
+    }.play
+)

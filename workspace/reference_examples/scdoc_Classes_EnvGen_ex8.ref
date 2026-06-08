@@ -1,0 +1,52 @@
+=== EXAMPLE: scdoc_Classes_EnvGen_ex8 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -16.4268
+  harmonic_regularity: 0.5897
+  pitch_clarity: 29.7523
+  inharmonicity: 0.0002
+  type: complex
+[filter]
+  spectral_slope: -8.6447
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: EnvGen Example 8
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/EnvGen.html
+// Tags: EnvGen, Classes, envelope
+// ---
+// --- Example 8 ---
+(
+{
+    EnvGen.kr(
+        Env.new([0.001, 1, 0.5, 0], [0.01, 0.3, 1], -4, 2, nil),
+        Impulse.kr(10)
+    ) * SinOsc.ar(440, 0, 0.1)
+}.play;
+)
+
+(
+{
+    EnvGen.kr(
+        Env.perc(0.1, 0.0, 0.5, 1, \welch),
+        Impulse.kr(100),
+        timeScale: 0.1
+    ) * SinOsc.ar(440, 0, 0.3)
+}.play;
+)

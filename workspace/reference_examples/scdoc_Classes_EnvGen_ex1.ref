@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_EnvGen_ex1 ===
+
+DESCRIPTION: A very_dark mixed sound, with complex characteristics, featuring punchy attack and impulsive envelope, with chaotic spectral movement, energy distribution is front_heavy, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: front_heavy
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 0.0000
+  harmonic_decay_rate: 0.0000
+  harmonic_regularity: 0.0000
+  pitch_clarity: 0.4401
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -0.9220
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: EnvGen Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/EnvGen.html
+// Tags: EnvGen, Classes, envelope
+// ---
+// --- Example 1 ---
+{ PinkNoise.ar(EnvGen.kr(Env.perc, doneAction: Done.freeSelf)) }.play

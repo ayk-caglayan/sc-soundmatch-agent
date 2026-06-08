@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_UGen_ex9 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 504 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 503.9684
+  harmonic_decay_rate: -11.3284
+  harmonic_regularity: 0.5912
+  pitch_clarity: 23.8312
+  inharmonicity: 0.0703
+  type: complex
+[filter]
+  spectral_slope: -8.0097
+  resonance_freq: 495.2637
+
+SUPERCOLLIDER CODE:
+// Title: UGen Example 9
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/UGen.html
+// Tags: UGen, Classes
+// ---
+// --- Example 9 ---
+{ SinOsc.ar(500 + LFPulse.ar(4).bipolar(40), 0, 0.5) * 0.1 }.play;

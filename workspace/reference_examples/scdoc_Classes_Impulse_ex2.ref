@@ -1,0 +1,37 @@
+=== EXAMPLE: scdoc_Classes_Impulse_ex2 ===
+
+DESCRIPTION: A very_bright mixed sound, with saw_like oscillator character around 100 Hz, featuring instant attack and impulsive envelope, with chaotic spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 100.0000
+  harmonic_decay_rate: 2.0224
+  harmonic_regularity: 0.8933
+  pitch_clarity: 2.5096
+  inharmonicity: 0.8288
+  type: saw_like
+[filter]
+  spectral_slope: 6.1412
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Impulse Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Impulse.html
+// Tags: Impulse, Classes, oscillator
+// ---
+// --- Example 2 ---
+{ Impulse.ar(800, 0.0, 0.5, 0) }.play
+
+{ Impulse.ar(XLine.kr(800, 100, 5), 0.0, 0.5, 0) }.play

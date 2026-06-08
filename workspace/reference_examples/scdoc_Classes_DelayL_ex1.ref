@@ -1,0 +1,51 @@
+=== EXAMPLE: scdoc_Classes_DelayL_ex1 ===
+
+DESCRIPTION: A bright mixed sound, with fm_or_inharmonic oscillator character around 1131 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1131.3708
+  harmonic_decay_rate: -3.9719
+  harmonic_regularity: 0.2788
+  pitch_clarity: 137.1403
+  inharmonicity: 0.1179
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -9.8371
+  resonance_freq: 2239.4531
+
+SUPERCOLLIDER CODE:
+// Title: DelayL Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/DelayL.html
+// Tags: DelayL, Classes, reverb
+// ---
+// --- Example 1 ---
+(
+// Dust randomly triggers Decay to create an exponential
+// decay envelope for the WhiteNoise input source
+{
+z = Decay.ar(Dust.ar(1, 0.5), 0.3, WhiteNoise.ar);
+DelayL.ar(z, 0.2, 0.2, 1, z); // input is mixed with delay via the add input
+}.play
+)
+
+(
+// recursive application of delay.
+{
+z = Decay2.ar(Dust.ar(1, 0.5), 0.01, 0.1, Saw.ar(100 + [0, 1]));
+5.do { |i| z = DelayL.ar(RLPF.ar(z, Rand(100, 3000), 0.03), 1, 1 / (2**i), 1, z * 0.5) };
+z
+}.play
+)

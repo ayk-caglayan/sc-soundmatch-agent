@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Classes_TDelay_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -7.2962
+  harmonic_regularity: 0.5161
+  pitch_clarity: 21.7856
+  inharmonicity: 0.0035
+  type: complex
+[filter]
+  spectral_slope: -2.9075
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: TDelay Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/TDelay.html
+// Tags: TDelay, Classes, reverb
+// ---
+// --- Example 1 ---
+(
+{
+    z = Impulse.ar(2);
+    [z * 0.1, ToggleFF.ar(TDelay.ar(z, 0.5)) * SinOsc.ar(mul: 0.1)]
+}.play)

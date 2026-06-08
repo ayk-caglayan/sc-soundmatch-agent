@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex30 ===
+
+DESCRIPTION: A very_bright mixed sound, with fm_or_inharmonic oscillator character around 1554 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1554.4511
+  harmonic_decay_rate: -1.5003
+  harmonic_regularity: 0.7228
+  pitch_clarity: 6.8939
+  inharmonicity: 0.1714
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -17.4618
+  resonance_freq: 2756.2500
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 30
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 30 ---
+// modulate frequency
+{ Resonz.ar(WhiteNoise.ar(0.5), XLine.kr(1000,8000,10), 0.05) }.play;
+
+// modulate bandwidth
+{ Resonz.ar(WhiteNoise.ar(0.5), 2000, XLine.kr(1, 0.001, 8)) }.play;
+
+// modulate bandwidth opposite direction
+{ Resonz.ar(WhiteNoise.ar(0.5), 2000, XLine.kr(0.001, 1, 8)) }.play;

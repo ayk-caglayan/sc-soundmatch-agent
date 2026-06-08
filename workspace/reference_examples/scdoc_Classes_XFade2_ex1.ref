@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_XFade2_ex1 ===
+
+DESCRIPTION: A bright pure_tone sound, with complex oscillator character around 441 Hz, featuring punchy attack and sustained envelope, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -6.2300
+  harmonic_regularity: 0.7848
+  pitch_clarity: 405.2688
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -7.9132
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: XFade2 Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/XFade2.html
+// Tags: XFade2, Classes
+// ---
+// --- Example 1 ---
+{ XFade2.ar(Saw.ar, SinOsc.ar, LFTri.kr(0.1)) }.play

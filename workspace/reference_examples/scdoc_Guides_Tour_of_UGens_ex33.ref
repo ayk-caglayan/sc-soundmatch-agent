@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex33 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 501 Hz, featuring instant attack and dynamic envelope, with evolving spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: evolving
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 501.0658
+  harmonic_decay_rate: -3.2455
+  harmonic_regularity: 0.8930
+  pitch_clarity: 16.0159
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -3.6085
+  resonance_freq: 495.2637
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 33
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 33 ---
+// a signal with impulse noise.
+{ Saw.ar(500, 0.1) + Dust2.ar(100, 0.9) }.play;
+// after applying median filter
+{ Median.ar(3, Saw.ar(500, 0.1) + Dust2.ar(100, 0.9)) }.play;
+
+// a signal with impulse noise.
+{ Saw.ar(500, 0.1) + Dust2.ar(100, 0.9) }.play;
+// after applying slew rate limiter
+{ Slew.ar(Saw.ar(500, 0.1) + Dust2.ar(100, 0.9),1000,1000) }.play;

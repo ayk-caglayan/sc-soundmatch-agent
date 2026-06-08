@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Guides_Multichannel-Expansion_ex4 ===
+
+DESCRIPTION: A dark pure_tone sound, with fm_or_inharmonic oscillator character around 133 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 132.7152
+  harmonic_decay_rate: -7.0870
+  harmonic_regularity: 0.5217
+  pitch_clarity: 28.6225
+  inharmonicity: 0.4773
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -19.0732
+  resonance_freq: 236.8652
+
+SUPERCOLLIDER CODE:
+// Title: Multichannel Expansion Example 4
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Multichannel-Expansion.html
+// Tags: Multichannel-Expansion, Guides
+// ---
+// --- Example 4 ---
+{ RLPF.ar(Saw.ar([100,250],0.05), XLine.kr(8000,400,5), 0.05) }.play;
+
+// the [100,250] array of frequency inputs to Saw causes Saw.ar to return
+// an array of two Saws, that array causes RLPF.ar to create two RLPFs.
+// Both RLPFs share a single instance of XLine.

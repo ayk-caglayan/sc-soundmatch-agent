@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Classes_Latoocarfian2DC_ex2 ===
+
+DESCRIPTION: A bright clean sound, with square_like oscillator character around 1903 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1902.7314
+  harmonic_decay_rate: -6.7153
+  harmonic_regularity: 0.9997
+  pitch_clarity: 20.7694
+  inharmonicity: 0.0085
+  type: square_like
+[filter]
+  spectral_slope: -32.0074
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Latoocarfian2DC Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Latoocarfian2DC.html
+// Tags: Latoocarfian2DC, Classes
+// ---
+// --- Example 2 ---
+(
+{ Latoocarfian2DC.ar(
+    SampleRate.ir/8,
+    SampleRate.ir/2,
+    LFNoise2.kr(2.dup, 1.5, 1.5),
+    d:LFNoise2.kr(2.dup, 0.5, 1.5),
+    mul:0.2
+) }.play(s);
+)

@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Classes_Blip_ex1 ===
+
+DESCRIPTION: A very_bright noisy sound, with noise oscillator character around 457 Hz, featuring punchy attack and percussive envelope, with chaotic spectral movement, energy distribution is early, filtered with highpass character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: percussive
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: noisy
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: early
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 456.8329
+  harmonic_decay_rate: 0.6801
+  harmonic_regularity: 0.0206
+  pitch_clarity: 2.5528
+  inharmonicity: 0.9229
+  type: noise
+[filter]
+  spectral_slope: 6.6392
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Blip Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Blip.html
+// Tags: Blip, Classes, oscillator
+// ---
+// --- Example 1 ---
+// modulate frequency
+{ Blip.ar(XLine.kr(20000, 200, 6), 100, 0.2) }.play;
+
+// modulate numharmonics
+{ Blip.ar(200, Line.kr(1, 100, 20), 0.2) }.play;

@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Classes_InRange_ex1 ===
+
+DESCRIPTION: A neutral mixed sound, with saw_like oscillator character around 50 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: neutral
+  crest_factor_db: dynamic
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -1.7877
+  harmonic_regularity: 0.9420
+  pitch_clarity: 5.2268
+  inharmonicity: 0.0382
+  type: saw_like
+[filter]
+  spectral_slope: -10.7326
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: InRange Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/InRange.html
+// Tags: InRange, Classes
+// ---
+// --- Example 1 ---
+// See the trigger
+{ InRange.kr(SinOsc.kr(1, 0, 0.2), -0.15, 0.15) }.play;
+
+// Trigger noise burst
+{ InRange.kr(SinOsc.kr(1, 0, 0.2), -0.15, 0.15) * BrownNoise.ar(0.1) }.play;

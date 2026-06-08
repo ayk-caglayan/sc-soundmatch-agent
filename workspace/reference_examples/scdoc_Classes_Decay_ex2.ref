@@ -1,0 +1,44 @@
+=== EXAMPLE: scdoc_Classes_Decay_ex2 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 301 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, energy distribution is late, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: moderate
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: late
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 301.3973
+  harmonic_decay_rate: -10.0025
+  harmonic_regularity: 0.5829
+  pitch_clarity: 270.2839
+  inharmonicity: 0.0082
+  type: complex
+[filter]
+  spectral_slope: -14.3102
+  resonance_freq: 301.4648
+
+SUPERCOLLIDER CODE:
+// Title: Decay Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Decay.html
+// Tags: Decay, Classes, envelope
+// ---
+// --- Example 2 ---
+// Used as an evelope generator
+(
+play({
+    Decay.ar(
+        in: Impulse.ar(XLine.kr(5,50,10), 0.25),
+        decayTime: 0.2,
+        mul: FSinOsc.ar(300)
+    )
+})
+)

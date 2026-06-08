@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_RLPFD_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 60 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 60.1513
+  harmonic_decay_rate: -0.6070
+  harmonic_regularity: 0.0028
+  pitch_clarity: 152.6799
+  inharmonicity: 0.0020
+  type: complex
+[filter]
+  spectral_slope: -26.3344
+  resonance_freq: 172.2656
+
+SUPERCOLLIDER CODE:
+// Title: RLPFD Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/RLPFD.html
+// Tags: RLPFD, Classes, filter
+// ---
+// --- Example 1 ---
+{ RLPFD.ar(Mix(LFSaw.ar([120, 180], 0, 0.33)), LinExp.kr(LFCub.kr(0.1, 0.5*pi), -1, 1, 280, 1500), 0.6, 0.5, mul:3).dup }.play

@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Classes_Formant_ex1 ===
+
+DESCRIPTION: A neutral pure_tone sound, with fm_or_inharmonic oscillator character around 709 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: neutral
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 708.6140
+  harmonic_decay_rate: -2.1806
+  harmonic_regularity: 0.0685
+  pitch_clarity: 50.3670
+  inharmonicity: 0.2864
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -20.7721
+  resonance_freq: 2045.6543
+
+SUPERCOLLIDER CODE:
+// Title: Formant Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Formant.html
+// Tags: Formant, Classes, oscillator
+// ---
+// --- Example 1 ---
+// modulate fundamental frequency, formant freq stays constant
+{ Formant.ar(XLine.kr(400, 1000, 8), 2000, 800, 0.125) }.play
+
+// modulate formant frequency, fundamental freq stays constant
+{ Formant.ar(200, XLine.kr(400, 4000, 8), 200, 0.125) }.play
+
+// modulate width frequency, other freqs stay constant
+{ Formant.ar(400, 2000, XLine.kr(800, 8000, 8), 0.125) }.play

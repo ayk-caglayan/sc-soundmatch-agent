@@ -1,0 +1,52 @@
+=== EXAMPLE: scdoc_Classes_Dconst_ex1 ===
+
+DESCRIPTION: A dark clean sound, with square_like oscillator character around 301 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 301.3973
+  harmonic_decay_rate: -6.2811
+  harmonic_regularity: 0.9176
+  pitch_clarity: 73.9473
+  inharmonicity: 0.3389
+  type: square_like
+[filter]
+  spectral_slope: -17.5130
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: Dconst Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Dconst.html
+// Tags: Dconst, Classes
+// ---
+// --- Example 1 ---
+// fast notes of random duration for 0.5 seconds
+// then a single note for 0.5 seconds
+(
+a = {
+    var freq = Duty.kr(
+        Dseq([
+            Dconst(0.5, Dwhite(0.05, 0.08, inf)),
+            0.5
+        ], inf),
+        0,
+        // workaround for the lack of Dexprand
+        Dwhite(0, 1, inf).linexp(0, 1, 200, 600)
+    );
+    VarSaw.ar(Lag.kr(freq, 0.02), 0, 0.3, 0.1).dup
+}.play;
+)
+
+a.free;

@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex29 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with fm_or_inharmonic oscillator character around 264 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 263.9016
+  harmonic_decay_rate: -2.4758
+  harmonic_regularity: 0.0297
+  pitch_clarity: 63.4143
+  inharmonicity: 0.2313
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -12.5963
+  resonance_freq: 796.7285
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 29
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 29 ---
+{ (FSinOsc.ar(800) ring2: FSinOsc.ar(XLine.kr(200,500,5))) * 0.125 }.play;

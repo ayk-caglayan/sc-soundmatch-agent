@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_LFPulse_ex5 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 200 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 200.0000
+  harmonic_decay_rate: -7.7453
+  harmonic_regularity: 0.5366
+  pitch_clarity: 18.1457
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -10.5953
+  resonance_freq: 1248.9258
+
+SUPERCOLLIDER CODE:
+// Title: LFPulse Example 5
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LFPulse.html
+// Tags: LFPulse, Classes, oscillator, modulation
+// ---
+// --- Example 5 ---
+{ LFPulse.ar(LFPulse.kr(3, 0, 0.3, 200, 200), 0, 0.2, 0.1) }.play;

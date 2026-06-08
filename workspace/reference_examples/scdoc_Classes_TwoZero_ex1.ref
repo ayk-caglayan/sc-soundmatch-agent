@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_TwoZero_ex1 ===
+
+DESCRIPTION: A very_bright gritty sound, with complex oscillator character around 53 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 52.5164
+  harmonic_decay_rate: -0.0182
+  harmonic_regularity: 0.0357
+  pitch_clarity: 5.1724
+  inharmonicity: 0.0510
+  type: complex
+[filter]
+  spectral_slope: 16.3593
+  resonance_freq: 15310.1074
+
+SUPERCOLLIDER CODE:
+// Title: TwoZero Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/TwoZero.html
+// Tags: TwoZero, Classes
+// ---
+// --- Example 1 ---
+{ TwoZero.ar(WhiteNoise.ar(0.125), XLine.kr(20, 20000, 8), 1) }.play

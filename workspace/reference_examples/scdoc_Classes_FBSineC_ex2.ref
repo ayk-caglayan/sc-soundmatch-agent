@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_FBSineC_ex2 ===
+
+DESCRIPTION: A neutral pure_tone sound, with square_like oscillator character around 1393 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: neutral
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1392.8809
+  harmonic_decay_rate: -14.2984
+  harmonic_regularity: 0.9593
+  pitch_clarity: 93.9235
+  inharmonicity: 0.0038
+  type: square_like
+[filter]
+  spectral_slope: -35.8336
+  resonance_freq: 1399.6582
+
+SUPERCOLLIDER CODE:
+// Title: FBSineC Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/FBSineC.html
+// Tags: FBSineC, Classes, oscillator
+// ---
+// --- Example 2 ---
+// default initial params
+{ FBSineC.ar(SampleRate.ir/4) * 0.2 }.play(s);

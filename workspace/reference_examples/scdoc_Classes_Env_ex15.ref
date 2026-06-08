@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Classes_Env_ex15 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with fm_or_inharmonic oscillator character around 295 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 294.5134
+  harmonic_decay_rate: -11.6540
+  harmonic_regularity: 0.5468
+  pitch_clarity: 49.7631
+  inharmonicity: 0.1523
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -5.8474
+  resonance_freq: 301.4648
+
+SUPERCOLLIDER CODE:
+// Title: Env Example 15
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Env.html
+// Tags: Env, Classes, envelope
+// ---
+// --- Example 15 ---
+(
+{
+    var env = Env.step([0, 3, 5, 2, 7, 3, 0, 3, 4, 0], [0.5, 0.1, 0.2, 1.0, 1.5, 2, 0.2, 0.1, 0.2, 0.1]);
+    var envgen = EnvGen.kr(env);
+    var freq = (envgen + 60).midicps;
+    SinOsc.ar(freq) * 0.1
+}.play
+);

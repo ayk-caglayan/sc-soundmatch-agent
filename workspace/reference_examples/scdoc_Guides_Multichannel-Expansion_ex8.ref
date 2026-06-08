@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Guides_Multichannel-Expansion_ex8 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with fm_or_inharmonic oscillator character around 148 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 148.1098
+  harmonic_decay_rate: -5.2402
+  harmonic_regularity: 0.5467
+  pitch_clarity: 171.0215
+  inharmonicity: 0.1764
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -11.4216
+  resonance_freq: 258.3984
+
+SUPERCOLLIDER CODE:
+// Title: Multichannel Expansion Example 8
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Multichannel-Expansion.html
+// Tags: Multichannel-Expansion, Guides
+// ---
+// --- Example 8 ---
+{ Saw.ar([100,250]) * [0.5,0.8] }.play;
+{ Saw.ar(LFNoise1.kr(1).range(0,100) + [100,250]) }.play;

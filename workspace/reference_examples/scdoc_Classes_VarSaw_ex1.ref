@@ -1,0 +1,52 @@
+=== EXAMPLE: scdoc_Classes_VarSaw_ex1 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 200 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 200.0000
+  harmonic_decay_rate: -5.6602
+  harmonic_regularity: 0.6357
+  pitch_clarity: 35.8095
+  inharmonicity: 0.0052
+  type: complex
+[filter]
+  spectral_slope: -21.6060
+  resonance_freq: 301.4648
+
+SUPERCOLLIDER CODE:
+// Title: VarSaw Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/VarSaw.html
+// Tags: VarSaw, Classes, oscillator
+// ---
+// --- Example 1 ---
+// observe different duty widths
+{ VarSaw.ar(1000, 0, [0, 0.5, 1]) }.plot
+
+(
+play({
+    VarSaw.ar(
+        LFPulse.kr(3, 0, 0.3, 200, 200),
+        0,
+        LFTri.kr(1.0).range(0, 1), // width
+        0.1)
+});
+)
+
+play({ VarSaw.ar(LFPulse.kr(3, 0, 0.3, 200, 200), 0, 0.2, 0.1) });
+
+// compare:
+
+play({ LFPulse.ar(LFPulse.kr(3, 0, 0.3, 200, 200), 0, 0.2, 0.1) });

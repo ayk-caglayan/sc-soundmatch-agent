@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_Streson_ex1 ===
+
+DESCRIPTION: A bright pure_tone sound, with fm_or_inharmonic oscillator character around 331 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 330.5801
+  harmonic_decay_rate: -5.0619
+  harmonic_regularity: 0.2473
+  pitch_clarity: 35.7183
+  inharmonicity: 0.2857
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -20.2815
+  resonance_freq: 279.9316
+
+SUPERCOLLIDER CODE:
+// Title: Streson Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Streson.html
+// Tags: Streson, Classes
+// ---
+// --- Example 1 ---
+{ Streson.ar(LFSaw.ar([220, 180], 0, mul:EnvGen.kr(Env.asr(0.5, 1, 0.02), 1.0) * 0.2), LinExp.kr(LFCub.kr(0.1, 0.5*pi), -1, 1, 280, 377).reciprocal, 0.9, 0.3) }.play

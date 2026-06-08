@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Classes_NamedControl_ex2 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 338 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 338.3071
+  harmonic_decay_rate: -14.8708
+  harmonic_regularity: 0.5010
+  pitch_clarity: 59.4937
+  inharmonicity: 0.0071
+  type: complex
+[filter]
+  spectral_slope: -6.6583
+  resonance_freq: 344.5312
+
+SUPERCOLLIDER CODE:
+// Title: NamedControl Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/NamedControl.html
+// Tags: NamedControl, Classes
+// ---
+// --- Example 2 ---
+// use NamedControl to create a number of multichannel controls:
+
+a = { SinOsc.ar(NamedControl.kr(\freq, [300, 330, 370], [1, 0.3, 0.02])).sum * 0.1 }.play;
+a.setn(\freq, [700, 705, 890]);
+a.setn(\freq, [0, 2, 5].midiratio * 400);
+
+// synonymous:
+a = { SinOsc.ar(\freq.kr([300, 330, 370], [1, 0.3, 0.02])).sum * 0.1 }.play;

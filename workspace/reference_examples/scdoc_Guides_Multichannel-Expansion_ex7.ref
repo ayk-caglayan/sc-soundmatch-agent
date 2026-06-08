@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Guides_Multichannel-Expansion_ex7 ===
+
+DESCRIPTION: A neutral pure_tone sound, with square_like oscillator character around 407 Hz, featuring punchy attack and percussive envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: neutral
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 406.9919
+  harmonic_decay_rate: -13.4377
+  harmonic_regularity: 0.8359
+  pitch_clarity: 27.8107
+  inharmonicity: 0.7150
+  type: square_like
+[filter]
+  spectral_slope: -24.9478
+  resonance_freq: 236.8652
+
+SUPERCOLLIDER CODE:
+// Title: Multichannel Expansion Example 7
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Multichannel-Expansion.html
+// Tags: Multichannel-Expansion, Guides
+// ---
+// --- Example 7 ---
+{ RLPF.ar(Saw.ar([100,250],0.05), XLine.kr([8000,500],[400,7000],5), 0.05) }.play;

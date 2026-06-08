@@ -1,0 +1,61 @@
+=== EXAMPLE: scdoc_Classes_BufDelayC_ex1 ===
+
+DESCRIPTION: A dark noisy sound, with noise oscillator character around 441 Hz, featuring punchy attack and impulsive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: noisy
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -7.0973
+  harmonic_regularity: 0.5055
+  pitch_clarity: 40.9396
+  inharmonicity: 0.0033
+  type: noise
+[filter]
+  spectral_slope: -5.2530
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: BufDelayC Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/BufDelayC.html
+// Tags: BufDelayC, Classes, reverb
+// ---
+// --- Example 1 ---
+// allocate buffer
+b = Buffer.alloc(s, 44100, 1);
+
+(
+// Dust randomly triggers Decay to create an exponential
+// decay envelope for the WhiteNoise input source
+{
+z = Decay.ar(Dust.ar(1, 0.5), 0.3, WhiteNoise.ar);
+BufDelayC.ar(b.bufnum, z, 0.2, 1, z); // input is mixed with delay via the add input
+}.play
+)
+
+b.free;
+
+
+// multichannel
+
+// two channels, two buffers
+b = Buffer.allocConsecutive(2, s, 32768, 1);
+
+a = { |bufs = #[0, 1]|
+    var sig = SinOsc.ar([440, 880]) * Decay2.kr(Impulse.kr([2, 4]), 0.01, 0.15);
+    sig + BufDelayC.ar(bufs, sig, delaytime: 0.125)
+}.play(args: [bufs: b]);
+
+a.free;
+b.do(_.free);

@@ -1,0 +1,53 @@
+=== EXAMPLE: scdoc_Classes_CheckBadValues_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -15.9794
+  harmonic_regularity: 0.5007
+  pitch_clarity: 48.3328
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -6.0632
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: CheckBadValues Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/CheckBadValues.html
+// Tags: CheckBadValues, Classes
+// ---
+// --- Example 1 ---
+{ CheckBadValues.kr(SinOsc.ar); 0 }.play // nothing wrong here
+
+{ CheckBadValues.kr(1 / 0, 1).poll; 0 }.play // check infinity
+
+x = { |test = -1| CheckBadValues.kr(test); 0 }.play // check NaN
+x.set(\test, -1.sqrt);
+
+// don't post, but do something with the output
+(
+x = { |freq = 440|
+    var good;
+    good = BinaryOpUGen('==', CheckBadValues.kr(freq, 0, 0), 0);
+    SinOsc.ar(freq, 0, 0.1) * good // silence the output if freq is bad
+}.play;
+)
+x.set(\freq, -1.sqrt);
+
+// the UGen method checkBadValues passes through the input for quick testing
+{ SinOsc.ar(440, 0, 0.1).checkBadValues }.play

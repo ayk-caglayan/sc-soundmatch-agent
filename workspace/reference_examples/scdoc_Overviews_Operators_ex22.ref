@@ -1,0 +1,47 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex22 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 919 Hz, featuring punchy attack and percussive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: percussive
+  envelope_flatness: dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 918.9587
+  harmonic_decay_rate: -6.0349
+  harmonic_regularity: 0.5014
+  pitch_clarity: 6.9055
+  inharmonicity: 0.0906
+  type: complex
+[filter]
+  spectral_slope: -1.4005
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 22
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 22 ---
+(
+{
+    var x, y, distance, velocity, pitchRatio, amplitude;
+    // object travels 200 meters in 6 secs (=120kph) passing 10 meters
+    // from the listener
+    x = 10;
+    y = LFSaw.kr(1/6, 0, 100);
+    distance = hypot(x, y);
+    velocity = Slope.kr(distance);
+    pitchRatio = (344 - velocity) / 344;  // speed of sound is 344 meters/sec
+    amplitude = 10 / distance.squared;
+    FSinOsc.ar(1000 * pitchRatio, 0, amplitude)
+}.play)

@@ -1,0 +1,45 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex31 ===
+
+DESCRIPTION: A neutral pure_tone sound, with saw_like oscillator character around 556 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: neutral
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 555.9673
+  harmonic_decay_rate: -2.1420
+  harmonic_regularity: 0.9675
+  pitch_clarity: 46.2641
+  inharmonicity: 0.7255
+  type: saw_like
+[filter]
+  spectral_slope: -22.6843
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 31
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 31 ---
+{ Ringz.ar(Dust.ar(3, 0.3), 2000, 2) }.play;
+
+{ Ringz.ar(WhiteNoise.ar(0.005), 2000, 0.5) }.play;
+
+// modulate frequency
+{ Ringz.ar(WhiteNoise.ar(0.005), XLine.kr(100,3000,10), 0.5) }.play;
+
+{ Ringz.ar(Impulse.ar(6, 0, 0.3),  XLine.kr(100,3000,10), 0.5) }.play;
+
+// modulate ring time
+{ Ringz.ar(Impulse.ar(6, 0, 0.3), 2000, XLine.kr(0.04, 4, 8)) }.play;

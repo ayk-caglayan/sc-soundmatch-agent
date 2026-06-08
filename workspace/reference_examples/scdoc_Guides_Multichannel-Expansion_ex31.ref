@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Guides_Multichannel-Expansion_ex31 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 100 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 100.0000
+  harmonic_decay_rate: 16.9768
+  harmonic_regularity: 0.7779
+  pitch_clarity: 33.0562
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -12.5920
+  resonance_freq: 495.2637
+
+SUPERCOLLIDER CODE:
+// Title: Multichannel Expansion Example 31
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Multichannel-Expansion.html
+// Tags: Multichannel-Expansion, Guides
+// ---
+// --- Example 31 ---
+// three channels of Pulse are mixed to one channel
+{ Mix.new(  Pulse.ar([400, 501, 600], [0.5, 0.1], 0.1) ) }.play

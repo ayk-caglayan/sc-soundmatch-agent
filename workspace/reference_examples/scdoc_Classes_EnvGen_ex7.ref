@@ -1,0 +1,47 @@
+=== EXAMPLE: scdoc_Classes_EnvGen_ex7 ===
+
+DESCRIPTION: A bright clean sound, with saw_like oscillator character around 50 Hz, featuring very_slow attack and sustained envelope, with chaotic spectral movement, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -2.9500
+  harmonic_regularity: 0.9468
+  pitch_clarity: 106.4649
+  inharmonicity: 0.0263
+  type: saw_like
+[filter]
+  spectral_slope: -17.3984
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: EnvGen Example 7
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/EnvGen.html
+// Tags: EnvGen, Classes, envelope
+// ---
+// --- Example 7 ---
+(
+// a Synth with a multi-node release stage
+d = { |gate = 1|
+    var env = Env([0, 1, 0, 0.5, 0], 0.5, -4, releaseNode: 1);
+    { BrownNoise.ar }.dup * EnvGen.kr(env, gate, doneAction: Done.freeSelf)
+}.play;
+)
+// forced release in 2 seconds:
+// end value (0) and shape (-4) are read from the env's last node, nodes 2 and 3 are skipped
+d.release(2);
+
+// without releaseTime: normal release stage, as defined in env (3 nodes)
+d.release();

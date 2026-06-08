@@ -1,0 +1,51 @@
+=== EXAMPLE: scdoc_Classes_Slew_ex1 ===
+
+DESCRIPTION: A bright pure_tone sound, with square_like oscillator character around 800 Hz, featuring punchy attack and dynamic envelope, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -7.5304
+  harmonic_regularity: 0.8179
+  pitch_clarity: 28.1423
+  inharmonicity: 0.0000
+  type: square_like
+[filter]
+  spectral_slope: -13.9049
+  resonance_freq: 753.6621
+
+SUPERCOLLIDER CODE:
+// Title: Slew Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Slew.html
+// Tags: Slew, Classes
+// ---
+// --- Example 1 ---
+(
+{
+    z = LFPulse.ar(800);
+    [z, Slew.ar(z, 4000, 4000)]
+}.plot)
+
+
+
+Has the effect of removing transients and higher frequencies.
+(
+{
+
+    z = Saw.ar(800, mul: 0.2);
+    Slew.ar(z, 400, 400)
+
+}.play
+)

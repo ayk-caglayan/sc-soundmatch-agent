@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_UGen_ex7 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with fm_or_inharmonic oscillator character around 620 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 620.4579
+  harmonic_decay_rate: -10.3345
+  harmonic_regularity: 0.5011
+  pitch_clarity: 24.7326
+  inharmonicity: 0.1296
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -4.7333
+  resonance_freq: 581.3965
+
+SUPERCOLLIDER CODE:
+// Title: UGen Example 7
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/UGen.html
+// Tags: UGen, Classes
+// ---
+// --- Example 7 ---
+{ SinOsc.ar(SinOsc.ar(0.3).curverange(440, 660, -3), 0, 0.5) * 0.1 }.play;

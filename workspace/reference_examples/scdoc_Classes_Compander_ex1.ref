@@ -1,0 +1,44 @@
+=== EXAMPLE: scdoc_Classes_Compander_ex1 ===
+
+DESCRIPTION: A bright mixed sound, with complex oscillator character around 81 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: impulsive
+  envelope_flatness: moderate
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 80.7574
+  harmonic_decay_rate: -3.2328
+  harmonic_regularity: 0.5632
+  pitch_clarity: 20.0713
+  inharmonicity: 0.0086
+  type: complex
+[filter]
+  spectral_slope: -15.5525
+  resonance_freq: 129.1992
+
+SUPERCOLLIDER CODE:
+// Title: Compander Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Compander.html
+// Tags: Compander, Classes, dynamics
+// ---
+// --- Example 1 ---
+(
+{
+    Decay2.ar(
+        Impulse.ar(8, 0, LFSaw.kr(0.3, 1, -0.3, 0.3)),
+        0.001,
+        0.3
+    )
+    * Mix.ar(Pulse.ar([80, 81], 0.3))
+}.play;
+)

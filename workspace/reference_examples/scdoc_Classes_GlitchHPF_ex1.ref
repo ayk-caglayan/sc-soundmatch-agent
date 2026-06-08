@@ -1,0 +1,44 @@
+=== EXAMPLE: scdoc_Classes_GlitchHPF_ex1 ===
+
+DESCRIPTION: A neutral pure_tone sound, with saw_like oscillator character around 54 Hz, featuring punchy attack and compressed envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: neutral
+  crest_factor_db: compressed
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 53.5887
+  harmonic_decay_rate: -0.8376
+  harmonic_regularity: 0.8291
+  pitch_clarity: 9.9527
+  inharmonicity: 0.0000
+  type: saw_like
+[filter]
+  spectral_slope: -2.5060
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: GlitchHPF Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/GlitchHPF.html
+// Tags: GlitchHPF, Classes, filter
+// ---
+// --- Example 1 ---
+//code that utilizes the glitch.
+//warning!  extremely loud.
+//note: might not sound the same on all soundcards
+(
+{GlitchHPF.ar(
+    BrownNoise.ar(1.dup),
+    0.5,
+    Saw.kr(1, 10)
+)}.play;
+)

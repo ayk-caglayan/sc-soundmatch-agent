@@ -1,0 +1,45 @@
+=== EXAMPLE: scdoc_Classes_RunningSum_ex2 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 444 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 443.8278
+  harmonic_decay_rate: -10.7597
+  harmonic_regularity: 0.7859
+  pitch_clarity: 160.6170
+  inharmonicity: 0.0039
+  type: complex
+[filter]
+  spectral_slope: -5.9809
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: RunningSum Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/RunningSum.html
+// Tags: RunningSum, Classes
+// ---
+// --- Example 2 ---
+// RMS Power
+(
+{
+    var input, numsamp;
+
+    input = LFSaw.ar;
+    numsamp = 30;
+
+    (RunningSum.ar(input.squared, numsamp) / numsamp).sqrt
+}.play
+)

@@ -1,0 +1,22 @@
+providers:
+  ollama:
+    type: ollama
+    base_url: http://localhost:11434/v1
+    api: openai-responses
+    model: qwen3-coder-next:latest
+
+agents:
+  sc_synth:
+    provider: ollama
+    workspace: ./workspace
+    tools:
+      allow:
+        - exec
+        - read
+        - write
+        - edit
+      deny:
+        - browser
+        - gateway
+        - sessions_send
+        - sessions_spawn

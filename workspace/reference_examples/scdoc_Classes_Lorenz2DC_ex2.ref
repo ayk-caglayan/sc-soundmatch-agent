@@ -1,0 +1,49 @@
+=== EXAMPLE: scdoc_Classes_Lorenz2DC_ex2 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with sine_like oscillator character around 50 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -3.6558
+  harmonic_regularity: 0.9323
+  pitch_clarity: 7.5445
+  inharmonicity: 0.0490
+  type: sine_like
+[filter]
+  spectral_slope: -17.4119
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Lorenz2DC Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Lorenz2DC.html
+// Tags: Lorenz2DC, Classes
+// ---
+// --- Example 2 ---
+{ Lorenz2DC.ar(8800, 16000) }.play(s);
+
+// randomly modulate params
+(
+{ Lorenz2DC.ar(
+    110, 22050,
+    LFNoise2.kr(1, 2, 10),
+    20,
+    LFNoise2.kr(1, 1.5, 2),
+    0.01
+) * 0.2 }.play(s);
+)
+
+// as a frequency control
+{ SinOsc.ar(Lorenz2DC.kr(40, 80, h:0.01)*800+900)*0.4 }.play(s);

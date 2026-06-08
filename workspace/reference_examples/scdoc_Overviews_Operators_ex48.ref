@@ -1,0 +1,45 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex48 ===
+
+DESCRIPTION: A neutral pure_tone sound, with complex oscillator character around 1002 Hz, featuring very_slow attack and sustained envelope, energy distribution is late, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: neutral
+  crest_factor_db: sustained
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: late
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1002.1316
+  harmonic_decay_rate: -7.7472
+  harmonic_regularity: 0.1541
+  pitch_clarity: 318.8034
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -3.5598
+  resonance_freq: 990.5273
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 48
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 48 ---
+(
+{
+    var a;
+    a = Line.ar(-2, 2, 0.01);
+    a.clip2
+}.plot
+)
+
+{ FSinOsc.ar(400).clip2(0.2) }.play; // clipping distortion
+
+{ FSinOsc.ar(1000).clip2(Line.kr(0,1,8)) }.play;

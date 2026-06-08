@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex21 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with saw_like oscillator character around 501 Hz, featuring very_slow attack and compressed envelope, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: compressed
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 501.0658
+  harmonic_decay_rate: -0.8967
+  harmonic_regularity: 0.9900
+  pitch_clarity: 15.1368
+  inharmonicity: 0.0035
+  type: saw_like
+[filter]
+  spectral_slope: -0.9691
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 21
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 21 ---
+{ // modulates and envelopes z
+var z;
+z = FSinOsc.ar(500);
+z max: FSinOsc.ar(0.1);
+}.play;

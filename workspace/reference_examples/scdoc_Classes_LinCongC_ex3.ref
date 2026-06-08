@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Classes_LinCongC_ex3 ===
+
+DESCRIPTION: A bright gritty sound, with complex oscillator character around 53 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 52.9732
+  harmonic_decay_rate: -0.1619
+  harmonic_regularity: 0.1709
+  pitch_clarity: 17.3598
+  inharmonicity: 0.0455
+  type: complex
+[filter]
+  spectral_slope: -30.4551
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: LinCongC Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LinCongC.html
+// Tags: LinCongC, Classes
+// ---
+// --- Example 3 ---
+// randomly modulate params
+(
+{ LinCongC.ar(
+    LFNoise2.kr(1, 1e4, 1e4),
+    LFNoise2.kr(0.1, 0.5, 1.4),
+    LFNoise2.kr(0.1, 0.1, 0.1),
+    LFNoise2.kr(0.1)
+) * 0.2 }.play(s);
+)

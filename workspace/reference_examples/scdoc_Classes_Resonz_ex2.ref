@@ -1,0 +1,44 @@
+=== EXAMPLE: scdoc_Classes_Resonz_ex2 ===
+
+DESCRIPTION: A very_bright mixed sound, with fm_or_inharmonic oscillator character around 1563 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1563.4559
+  harmonic_decay_rate: -1.6796
+  harmonic_regularity: 0.7449
+  pitch_clarity: 6.9991
+  inharmonicity: 0.1689
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -17.5411
+  resonance_freq: 2605.5176
+
+SUPERCOLLIDER CODE:
+// Title: Resonz Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Resonz.html
+// Tags: Resonz, Classes, filter
+// ---
+// --- Example 2 ---
+{ Resonz.ar(WhiteNoise.ar(0.5), 2000, 0.1) }.play
+
+// modulate frequency
+{ Resonz.ar(WhiteNoise.ar(0.5), XLine.kr(1000, 8000, 10), 0.05) }.play
+
+// modulate bandwidth
+{ Resonz.ar(WhiteNoise.ar(0.5), 2000, XLine.kr(1, 0.001, 8)) }.play
+
+// modulate bandwidth opposite direction
+{ Resonz.ar(WhiteNoise.ar(0.5), 2000, XLine.kr(0.001, 1, 8)) }.play

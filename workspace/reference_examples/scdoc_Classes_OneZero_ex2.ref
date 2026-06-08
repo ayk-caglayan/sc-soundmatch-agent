@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Classes_OneZero_ex2 ===
+
+DESCRIPTION: A very_bright mixed sound, with complex oscillator character around 52 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.7632
+  harmonic_decay_rate: 0.0279
+  harmonic_regularity: 0.1267
+  pitch_clarity: 14.7374
+  inharmonicity: 0.0399
+  type: complex
+[filter]
+  spectral_slope: 0.6407
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: OneZero Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/OneZero.html
+// Tags: OneZero, Classes
+// ---
+// --- Example 2 ---
+{ OneZero.ar(WhiteNoise.ar(0.5), 0.5) }.play
+
+{ OneZero.ar(WhiteNoise.ar(0.5), -0.5) }.play
+
+{ OneZero.ar(WhiteNoise.ar(0.5), Line.kr(-0.5, 0.5, 10)) }.play

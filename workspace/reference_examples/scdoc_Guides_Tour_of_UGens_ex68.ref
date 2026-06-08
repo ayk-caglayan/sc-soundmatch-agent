@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex68 ===
+
+DESCRIPTION: A dark mixed sound, with fm_or_inharmonic oscillator character around 492 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 492.4578
+  harmonic_decay_rate: -3.9849
+  harmonic_regularity: 0.5887
+  pitch_clarity: 21.1796
+  inharmonicity: 0.3866
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -24.1752
+  resonance_freq: 667.5293
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 68
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 68 ---
+{ Blip.ar(Gate.ar(LFNoise2.ar(40), LFPulse.ar(1)) * 400 + 500, 4, 0.2) }.play;

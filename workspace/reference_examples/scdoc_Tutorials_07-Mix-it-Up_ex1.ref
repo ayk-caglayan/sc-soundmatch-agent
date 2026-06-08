@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Tutorials_07-Mix-it-Up_ex1 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 221 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 220.6358
+  harmonic_decay_rate: -5.4532
+  harmonic_regularity: 0.2053
+  pitch_clarity: 96.7322
+  inharmonicity: 0.0002
+  type: complex
+[filter]
+  spectral_slope: -11.2398
+  resonance_freq: 516.7969
+
+SUPERCOLLIDER CODE:
+// Title: 07. Mix it Up Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Tutorials/Getting-Started/07-Mix-it-Up.html
+// Tags: 07-Mix-it-Up, Tutorials
+// ---
+// --- Example 1 ---
+{ PinkNoise.ar(0.2) + SinOsc.ar(440, 0, 0.2) + Saw.ar(660, 0.2) }.play;

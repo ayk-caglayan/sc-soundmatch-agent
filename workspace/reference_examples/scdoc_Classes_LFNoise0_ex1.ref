@@ -1,0 +1,51 @@
+=== EXAMPLE: scdoc_Classes_LFNoise0_ex1 ===
+
+DESCRIPTION: A very_bright mixed sound, with complex oscillator character around 54 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 53.5896
+  harmonic_decay_rate: 0.0199
+  harmonic_regularity: 0.0115
+  pitch_clarity: 29.0115
+  inharmonicity: 0.0609
+  type: complex
+[filter]
+  spectral_slope: -17.3996
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: LFNoise0 Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LFNoise0.html
+// Tags: LFNoise0, Classes, noise, modulation
+// ---
+// --- Example 1 ---
+{ LFNoise0.ar(1000, 0.25) }.play;
+
+// modulate frequency
+
+{ LFNoise0.ar(XLine.kr(1000, 10000, 10), 0.25) }.play;
+
+// as frequency modulator
+(
+{ SinOsc.ar(
+        LFNoise0.ar(4, 400, 450),
+        0, 0.2
+    )
+}.play;
+)
+
+// freq is the rate of starting points
+{ var freq = 1000; [LFNoise0.ar(freq), Impulse.ar(freq)] }.plot

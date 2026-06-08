@@ -1,0 +1,51 @@
+=== EXAMPLE: scdoc_Classes_EnvGate_ex1 ===
+
+DESCRIPTION: A neutral pure_tone sound, with complex oscillator character around 80 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: neutral
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 80.2923
+  harmonic_decay_rate: -2.3379
+  harmonic_regularity: 0.6615
+  pitch_clarity: 81.4809
+  inharmonicity: 0.0058
+  type: complex
+[filter]
+  spectral_slope: -35.9891
+  resonance_freq: 150.7324
+
+SUPERCOLLIDER CODE:
+// Title: EnvGate Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/EnvGate.html
+// Tags: EnvGate, Classes, envelope
+// ---
+// --- Example 1 ---
+a = { LPF.ar(Saw.ar(200), 600) * EnvGate.new }.play;
+a.set(\fadeTime, 2);
+a.release;
+
+// the same as:
+a.set(\gate, 0);
+
+// several env gates can coexist in one synth def.
+(
+a = {
+    var sound1 = LPF.ar(Saw.ar(80), 600) * EnvGate.new;
+    var sound2 = RLPF.ar(Saw.ar(200) * 0.5, 6000 * EnvGate.new + 60, 0.1) * EnvGate.new;
+    sound1 + sound2
+}.play;
+)
+a.set(\fadeTime, 5);
+a.release;

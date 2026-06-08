@@ -1,0 +1,99 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex74 ===
+
+DESCRIPTION: A bright pure_tone sound, with fm_or_inharmonic oscillator character around 264 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 263.9016
+  harmonic_decay_rate: -2.7644
+  harmonic_regularity: 0.6828
+  pitch_clarity: 2.1923
+  inharmonicity: 0.2586
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -19.3523
+  resonance_freq: 1141.2598
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 74
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 74 ---
+(
+{
+    // mixing sine oscillators in parallel
+    var n = 16; // number of structures to make
+    // mix together  parallel structures
+    Mix.fill(n,
+            // this function creates an oscillator at a random frequency
+            { FSinOsc.ar(200 + 1000.0.rand) }
+    ) / (2*n)            // scale amplitude
+}.play;
+)
+
+(
+{
+    // mixing sine oscillators in parallel
+    var n = 16; // number of structures to make
+    // mix together  parallel structures
+    Mix.fill(n,
+            // this function creates an oscillator at a random frequency
+            { FSinOsc.ar(200 + 1000.0.rand + [0, 0.5]) }
+    ) / (2*n)            // scale amplitude
+}.play;
+)
+
+(
+{
+    // mixing sine oscillators in parallel
+    var n = 16; // number of structures to make
+    // mix together  parallel structures
+    Mix.fill(n,
+            {
+                var amp;
+                amp = FSinOsc.kr(exprand(0.1,1),2pi.rand).max(0);
+                Pan2.ar(
+                    FSinOsc.ar(exprand(100,1000.0), 0, amp),
+                    1.0.rand2)
+            }
+    ) / (2*n)            // scale amplitude
+}.play;
+)
+
+
+(
+{
+    var n;
+    n = 8; // number of 'voices'
+    Mix.ar( // mix all stereo pairs down.
+        Pan2.ar( // pan the voice to a stereo position
+            CombL.ar( // a comb filter used as a string resonator
+                Dust.ar( // random impulses as an excitation function
+                    // an array to cause expansion of Dust to n channels
+                    // 1 means one impulse per second on average
+                    1.dup(n),
+                    0.3 // amplitude
+                ),
+                0.01, // max delay time in seconds
+                // array of different random lengths for each 'string'
+                {0.004.rand+0.0003}.dup(n),
+                4 // decay time in seconds
+            ),
+            {1.0.rand2}.dup(n) // give each voice a different pan position
+        )
+    )
+}.play;
+)

@@ -1,0 +1,49 @@
+=== EXAMPLE: scdoc_Classes_T2K_ex1 ===
+
+DESCRIPTION: A very_dark mixed sound, with complex oscillator character around 800 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: percussive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -4.2215
+  harmonic_regularity: 0.5498
+  pitch_clarity: 4.8209
+  inharmonicity: 0.0115
+  type: complex
+[filter]
+  spectral_slope: -2.4492
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: T2K Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/T2K.html
+// Tags: T2K, Classes
+// ---
+// --- Example 1 ---
+// this does not work:
+(
+{
+    var trig = Dust.ar(4);
+    Trig.kr(trig, 0.1) * SinOsc.ar(800) * 0.1
+}.play;
+)
+
+// this works:
+(
+{
+    var trig = T2K.kr(Dust.ar(4));
+    Trig.kr(trig, 0.1) * SinOsc.ar(800) * 0.1
+}.play;
+)

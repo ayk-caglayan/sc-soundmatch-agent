@@ -1,0 +1,41 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex44 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring slow attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: slow
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -14.5637
+  harmonic_regularity: 0.5038
+  pitch_clarity: 124.4486
+  inharmonicity: 0.0011
+  type: complex
+[filter]
+  spectral_slope: -5.1299
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 44
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 44 ---
+{ Line.ar(0, 4, 0.01).moddif(0) }.plot;
+(
+{
+var mul = 0.2 moddif: FSinOsc.ar(2, 0, 0.5);
+FSinOsc.ar(440, 0, mul);
+}.play;
+)

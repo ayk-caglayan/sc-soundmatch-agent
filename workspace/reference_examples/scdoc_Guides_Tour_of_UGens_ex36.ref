@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex36 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 301 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 301.3973
+  harmonic_decay_rate: -15.9777
+  harmonic_regularity: 0.5007
+  pitch_clarity: 102.1166
+  inharmonicity: 0.0029
+  type: complex
+[filter]
+  spectral_slope: -4.2320
+  resonance_freq: 301.4648
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 36
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 36 ---
+{ SinOsc.ar(300, 0, 0.2) }.play;
+{ SinOsc.ar(300, 0, 0.2).abs }.play;
+{ SinOsc.ar(300, 0, 0.2).max(0) }.play;
+{ SinOsc.ar(300, 0).squared * 0.2 }.play;
+{ SinOsc.ar(300, 0).cubed * 0.2 }.play;

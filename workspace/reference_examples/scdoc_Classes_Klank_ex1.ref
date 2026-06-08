@@ -1,0 +1,41 @@
+=== EXAMPLE: scdoc_Classes_Klank_ex1 ===
+
+DESCRIPTION: A dark pure_tone sound, with saw_like oscillator character around 72 Hz, featuring instant attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: dark
+  crest_factor_db: impulsive
+  envelope_flatness: moderate
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 71.9467
+  harmonic_decay_rate: 0.3143
+  harmonic_regularity: 0.9560
+  pitch_clarity: 7.3438
+  inharmonicity: 0.0000
+  type: saw_like
+[filter]
+  spectral_slope: -8.3858
+  resonance_freq: 1119.7266
+
+SUPERCOLLIDER CODE:
+// Title: Klank Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Klank.html
+// Tags: Klank, Classes
+// ---
+// --- Example 1 ---
+{ Klank.ar(`[[800, 1071, 1153, 1723], nil, [1, 1, 1, 1]], Impulse.ar(2, 0, 0.1)) }.play;
+
+{ Klank.ar(`[[800, 1071, 1353, 1723], nil, [1, 1, 1, 1]], Dust.ar(8, 0.1)) }.play;
+
+{ Klank.ar(`[[800, 1071, 1353, 1723], nil, [1, 1, 1, 1]], PinkNoise.ar(0.007)) }.play;
+
+{ Klank.ar(`[[200, 671, 1153, 1723], nil, [1, 1, 1, 1]], PinkNoise.ar([0.007, 0.007])) }.play;

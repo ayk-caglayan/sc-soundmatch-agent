@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex24 ===
+
+DESCRIPTION: A very_bright mixed sound, with complex oscillator character around 51 Hz, featuring punchy attack and compressed envelope, with chaotic spectral movement, filtered with lowpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: compressed
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: lowpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.4651
+  harmonic_decay_rate: 0.0248
+  harmonic_regularity: 0.0678
+  pitch_clarity: 13.3813
+  inharmonicity: 0.0423
+  type: complex
+[filter]
+  spectral_slope: -0.0102
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 24
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 24 ---
+{ ClipNoise.ar(0.2) }.play;
+{ WhiteNoise.ar(0.2) }.play;
+{ PinkNoise.ar(0.4) }.play;
+{ BrownNoise.ar(0.2) }.play;
+{ GrayNoise.ar(0.2) }.play;

@@ -1,0 +1,50 @@
+=== EXAMPLE: scdoc_Guides_Level_Compensation_ex6 ===
+
+DESCRIPTION: A bright clean sound, with sine_like oscillator character around 50 Hz, featuring moderate attack and dynamic envelope, with chaotic spectral movement, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: moderate
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -3.6172
+  harmonic_regularity: 0.9579
+  pitch_clarity: 53.8937
+  inharmonicity: 0.0175
+  type: sine_like
+[filter]
+  spectral_slope: -18.4087
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Level Compensation when Mixing and Panning Example 6
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Level_Compensation.html
+// Tags: Level_Compensation, Guides
+// ---
+// --- Example 6 ---
+s.meter; s.play;
+
+// levelComp defaults to true, which is equal power -
+// this is kept this way for backwards compatibility.
+{ Splay.ar(Saw.ar([20, 30, 50]), 1, levelComp: true) }.play;
+// levelComp can be turned off to set level otherwise:
+{ Splay.ar(Saw.ar([20, 30, 50]), level: 0.6, levelComp: false) }.play;
+
+// levelComp can be a number between 0.0 -> no comp,
+// and 1.0 -> equal amplitude comp, with 0.5 being equal power,
+// which allows fine/tuning by hand via the exponent:
+{ Splay.ar(Saw.ar([100, 150, 250]), levelComp: 0.5) }.play;
+
+// When setting spread low, levels and peaks will go up;
+// the worst case is panning all inputs to a single channel:
+{ Splay.ar(Saw.ar([100, 150, 250]), spread: 0, center: 1, levelComp: 0.5) }.play;

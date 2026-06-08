@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_FBSineL_ex4 ===
+
+DESCRIPTION: A very_bright mixed sound, with fm_or_inharmonic oscillator character around 1401 Hz, featuring punchy attack and compressed envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: compressed
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1400.9498
+  harmonic_decay_rate: 0.5777
+  harmonic_regularity: 0.4131
+  pitch_clarity: 21.9315
+  inharmonicity: 0.2202
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -4.3195
+  resonance_freq: 5254.1016
+
+SUPERCOLLIDER CODE:
+// Title: FBSineL Example 4
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/FBSineL.html
+// Tags: FBSineL, Classes, oscillator
+// ---
+// --- Example 4 ---
+// increase phase multiplier
+{ FBSineL.ar(SampleRate.ir, 1, 0, XLine.kr(1, 2, 10), 0.1) * 0.2 }.play(s);

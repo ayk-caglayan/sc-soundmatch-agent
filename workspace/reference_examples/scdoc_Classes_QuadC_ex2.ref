@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_QuadC_ex2 ===
+
+DESCRIPTION: A bright pure_tone sound, with complex oscillator character around 1838 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1837.9174
+  harmonic_decay_rate: -8.6144
+  harmonic_regularity: 0.3675
+  pitch_clarity: 12.8841
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -39.7474
+  resonance_freq: 3509.9121
+
+SUPERCOLLIDER CODE:
+// Title: QuadC Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/QuadC.html
+// Tags: QuadC, Classes
+// ---
+// --- Example 2 ---
+// default params
+{ QuadC.ar(SampleRate.ir/4) * 0.2 }.play(s);

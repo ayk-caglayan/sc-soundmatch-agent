@@ -1,0 +1,25 @@
+# Runtime outputs
+runs/
+workspace/current_run
+workspace/.openclaw/
+workspace/home/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Audio (add demos under examples/ if needed)
+*.wav
+!examples/**/*.wav
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# Secrets / local config
+.env
+*.env
+openclaw.json

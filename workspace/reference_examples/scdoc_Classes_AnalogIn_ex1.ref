@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Classes_AnalogIn_ex1 ===
+
+DESCRIPTION: A very_dark mixed sound, with complex characteristics, featuring instant attack and compressed envelope, with static spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_dark
+  crest_factor_db: compressed
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: static
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 0.0000
+  harmonic_decay_rate: 0.0000
+  harmonic_regularity: 0.0000
+  pitch_clarity: 0.0000
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: 0.0000
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: AnalogIn Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/AnalogIn.html
+// Tags: AnalogIn, Classes
+// ---
+// --- Example 1 ---
+// modulate frequency of a sine oscillator
+
+(
+SynthDef("help-AnalogIn", { |out = 0|
+    Out.ar(out,
+      SinOsc.ar(AnalogIn.ar(0).exprange(200, 5000), 0, 0.1)
+    )
+}).play;
+)

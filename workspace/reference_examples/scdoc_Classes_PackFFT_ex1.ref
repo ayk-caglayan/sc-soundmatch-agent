@@ -1,0 +1,56 @@
+=== EXAMPLE: scdoc_Classes_PackFFT_ex1 ===
+
+DESCRIPTION: A neutral pure_tone sound, with complex oscillator character around 172 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: neutral
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 172.1103
+  harmonic_decay_rate: -0.4277
+  harmonic_regularity: 0.1200
+  pitch_clarity: 2.5229
+  inharmonicity: 0.0002
+  type: complex
+[filter]
+  spectral_slope: -41.7513
+  resonance_freq: 3186.9141
+
+SUPERCOLLIDER CODE:
+// Title: PackFFT Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/PackFFT.html
+// Tags: PackFFT, Classes, spectral
+// ---
+// --- Example 1 ---
+// Reminder: This isn't the intended typical usage! It's OK to do this though.
+(
+x = {
+    var mags, phases, chain, sig;
+    // Create simple undulating magnitudes
+    mags = { FSinOsc.kr(ExpRand(0.1, 1)).range(0, 1) }.dup(100);
+    // Then give them a "rolloff" to make the sound less unpleasant
+    mags = mags  * ((1, 0.99 .. 0.01).squared);
+    // Let's turn the bins on and off at different rates, I'm *sure* that'll sound interesting
+    mags = mags * { LFPulse.kr(2 ** IRand(-3, 5)).range(0, 1) }.dup(100);
+    // Let's ignore phase for now
+    phases = 0.dup(100);
+    // We need to create an FFT chain to feed our data in to.
+    // The easiest way is to do an FFT on some signal which we then ignore!
+    chain = FFT(LocalBuf(512), FSinOsc.ar);
+    // Now we can do the packing
+    chain = PackFFT(chain, 512, [mags, phases].flop.flatten, 0, 99, 1);
+    sig = IFFT(chain);
+    sig.dup
+}.play
+)
+x.free;

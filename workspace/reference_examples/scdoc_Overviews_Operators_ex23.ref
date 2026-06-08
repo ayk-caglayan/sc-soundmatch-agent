@@ -1,0 +1,46 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex23 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with square_like oscillator character around 191 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: impulsive
+  envelope_flatness: dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 190.9683
+  harmonic_decay_rate: -10.7573
+  harmonic_regularity: 0.9601
+  pitch_clarity: 13.9504
+  inharmonicity: 0.0908
+  type: square_like
+[filter]
+  spectral_slope: -8.9469
+  resonance_freq: 258.3984
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 23
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 23 ---
+(
+{
+    var x, y, distance, velocity, pitchRatio, amplitude, motorSound;
+    // object travels 200 meters in 6 secs (=120kph) passing 10 meters
+    // from the listener
+    x = 10;
+    y = LFSaw.kr(1/6, 0, 100);
+    distance = hypot(x, y);
+    amplitude = 40 / distance.squared;
+    motorSound = RLPF.ar(FSinOsc.ar(200, 0, LFPulse.ar(31.3, 0, 0.4)), 400, 0.3);
+    DelayL.ar(motorSound, 110/344, distance/344, amplitude)
+}.play)

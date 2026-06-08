@@ -1,0 +1,40 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex2 ===
+
+DESCRIPTION: A dark gritty sound, with fm_or_inharmonic oscillator character around 569 Hz, featuring punchy attack and compressed envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: compressed
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 568.9624
+  harmonic_decay_rate: -7.2441
+  harmonic_regularity: 0.7269
+  pitch_clarity: 27.9328
+  inharmonicity: 0.3539
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -25.2927
+  resonance_freq: 1098.1934
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 2 ---
+// parabolic approximation of sine
+{ LFPar.ar(LFPar.kr(LFPar.kr(0.2,0,8,10),0, 400,800),0,0.1) }.play;
+{ LFPar.ar(LFPar.kr(0.2, 0, 400,800),0,0.1) }.play;
+{ LFPar.ar(800,0,0.1) }.play;
+// since it is not band limited, there are aliasing artifacts
+{ LFPar.ar(XLine.kr(100,15000,6),0,0.1) }.play;

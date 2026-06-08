@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex46 ===
+
+DESCRIPTION: A very_bright gritty sound, with noise oscillator character around 51 Hz, featuring slow attack and percussive envelope, with chaotic spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: slow
+  brightness: very_bright
+  crest_factor_db: percussive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.4651
+  harmonic_decay_rate: -0.0067
+  harmonic_regularity: 0.0284
+  pitch_clarity: 12.4254
+  inharmonicity: 0.0347
+  type: noise
+[filter]
+  spectral_slope: 0.0143
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 46
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 46 ---
+{ WhiteNoise.ar.amclip(FSinOsc.kr(1,0.2)) }.play; // makes a sine envelope

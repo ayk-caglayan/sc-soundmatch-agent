@@ -1,0 +1,40 @@
+=== EXAMPLE: scdoc_Classes_FSinOsc_ex1 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 800 Hz, featuring very_slow attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -14.1306
+  harmonic_regularity: 0.5543
+  pitch_clarity: 112.4532
+  inharmonicity: 0.0530
+  type: complex
+[filter]
+  spectral_slope: -9.7040
+  resonance_freq: 818.2617
+
+SUPERCOLLIDER CODE:
+// Title: FSinOsc Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/FSinOsc.html
+// Tags: FSinOsc, Classes, oscillator
+// ---
+// --- Example 1 ---
+{ FSinOsc.ar(800) * 0.2 }.play;
+
+{ FSinOsc.ar(XLine.kr(200, 4000, 1)) * 0.2 }.play;
+
+// loses amplitude towards the end
+{ FSinOsc.ar(FSinOsc.ar(XLine.kr(4, 401, 8), 0.0, 200, 800)) * 0.2 }.play;

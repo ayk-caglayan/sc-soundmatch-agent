@@ -1,0 +1,41 @@
+=== EXAMPLE: scdoc_Classes_LeakDC_ex1 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with complex oscillator character around 800 Hz, featuring instant attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -2.8718
+  harmonic_regularity: 0.0383
+  pitch_clarity: 323.0901
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -1.6725
+  resonance_freq: 753.6621
+
+SUPERCOLLIDER CODE:
+// Title: LeakDC Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LeakDC.html
+// Tags: LeakDC, Classes
+// ---
+// --- Example 1 ---
+(
+{
+    var a;
+    a = LFPulse.ar(800, 0.5, 0.5, 0.5);
+    [a, LeakDC.ar(a, 0.995)]
+}.play
+)

@@ -1,0 +1,53 @@
+=== EXAMPLE: scdoc_Classes_CombN_ex1 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with fm_or_inharmonic oscillator character around 1573 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, and filtered with highpass character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1572.5130
+  harmonic_decay_rate: 0.7978
+  harmonic_regularity: 0.3941
+  pitch_clarity: 3.6804
+  inharmonicity: 0.1744
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: 0.2700
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: CombN Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/CombN.html
+// Tags: CombN, Classes, reverb
+// ---
+// --- Example 1 ---
+// These examples compare the variants, so that you can hear the difference in interpolation
+
+// Comb used as a resonator. The resonant fundamental is equal to
+// reciprocal of the delay time.
+{ CombN.ar(WhiteNoise.ar(0.01), 0.01, XLine.kr(0.0001, 0.01, 20), 0.2) }.play;
+
+{ CombL.ar(WhiteNoise.ar(0.01), 0.01, XLine.kr(0.0001, 0.01, 20), 0.2) }.play;
+
+{ CombC.ar(WhiteNoise.ar(0.01), 0.01, XLine.kr(0.0001, 0.01, 20), 0.2) }.play;
+
+// with negative feedback:
+{ CombN.ar(WhiteNoise.ar(0.01), 0.01, XLine.kr(0.0001, 0.01, 20), -0.2) }.play;
+
+{ CombL.ar(WhiteNoise.ar(0.01), 0.01, XLine.kr(0.0001, 0.01, 20), -0.2) }.play;
+
+{ CombC.ar(WhiteNoise.ar(0.01), 0.01, XLine.kr(0.0001, 0.01, 20), -0.2) }.play;
+
+// used as an echo.
+{ CombN.ar(Decay.ar(Dust.ar(1, 0.5), 0.2, WhiteNoise.ar), 0.2, 0.2, 3) }.play;

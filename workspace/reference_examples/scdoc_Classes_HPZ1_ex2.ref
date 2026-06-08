@@ -1,0 +1,49 @@
+=== EXAMPLE: scdoc_Classes_HPZ1_ex2 ===
+
+DESCRIPTION: A very_bright mixed sound, with saw_like oscillator character around 52 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.9132
+  harmonic_decay_rate: 3.6448
+  harmonic_regularity: 0.9181
+  pitch_clarity: 2.0928
+  inharmonicity: 0.0429
+  type: saw_like
+[filter]
+  spectral_slope: 17.8050
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: HPZ1 Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/HPZ1.html
+// Tags: HPZ1, Classes
+// ---
+// --- Example 2 ---
+// Compare:
+
+{ WhiteNoise.ar(0.25) }.play;
+
+{ HPZ1.ar(WhiteNoise.ar(0.25)) }.play;
+
+// HPZ1 is useful to detect changes in a signal:
+// see also HPZ2
+(
+{
+    var changingSignal = LFNoise0.ar(1000);
+    var hpz1 = HPZ1.ar(changingSignal);
+    [hpz1, hpz1 > 0, hpz1.abs > 0]
+}.plot
+);

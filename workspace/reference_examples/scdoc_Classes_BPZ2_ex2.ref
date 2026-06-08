@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Classes_BPZ2_ex2 ===
+
+DESCRIPTION: A very_bright mixed sound, with saw_like oscillator character around 51 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.4651
+  harmonic_decay_rate: 3.6599
+  harmonic_regularity: 0.9141
+  pitch_clarity: 4.0668
+  inharmonicity: 0.0303
+  type: saw_like
+[filter]
+  spectral_slope: 6.1338
+  resonance_freq: 10249.8047
+
+SUPERCOLLIDER CODE:
+// Title: BPZ2 Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/BPZ2.html
+// Tags: BPZ2, Classes
+// ---
+// --- Example 2 ---
+// Compare:
+
+{ WhiteNoise.ar(0.25) }.play;
+
+{ BPZ2.ar(WhiteNoise.ar(0.25)) }.play;

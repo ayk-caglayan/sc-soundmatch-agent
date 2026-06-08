@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Classes_Pan2_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -15.9794
+  harmonic_regularity: 0.5007
+  pitch_clarity: 483.3284
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -6.0632
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: Pan2 Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Pan2.html
+// Tags: Pan2, Classes
+// ---
+// --- Example 1 ---
+// hear the difference, LinPan having a slight drop in the middle...
+{ LinPan2.ar(SinOsc.ar(440), Line.kr(-1, 1, 5)) }.play
+
+// ... whereas Pan2 is more smooth
+{ Pan2.ar(SinOsc.ar(440), Line.kr(-1, 1, 5)) }.play
+
+// other examples
+{ Pan2.ar(PinkNoise.ar(0.4), FSinOsc.kr(2), 0.3) }.play;

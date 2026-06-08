@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Guides_FFT-Overview_ex12 ===
+
+DESCRIPTION: A very_bright mixed sound, with complex oscillator character around 51 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with highpass character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: highpass
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 51.4651
+  harmonic_decay_rate: -0.0773
+  harmonic_regularity: 0.5910
+  pitch_clarity: 7.6351
+  inharmonicity: 0.0383
+  type: complex
+[filter]
+  spectral_slope: 0.0264
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: FFT Overview Example 12
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/FFT-Overview.html
+// Tags: FFT-Overview, Guides, spectral
+// ---
+// --- Example 12 ---
+chain = FFT(bufnum, { WhiteNoise.ar(0.2) }.dup);

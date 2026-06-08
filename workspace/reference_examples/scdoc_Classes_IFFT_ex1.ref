@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Classes_IFFT_ex1 ===
+
+DESCRIPTION: A very_bright gritty sound, with complex oscillator character around 51 Hz, featuring moderate attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: moderate
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.8740
+  harmonic_decay_rate: -0.0447
+  harmonic_regularity: 0.1830
+  pitch_clarity: 3.8252
+  inharmonicity: 0.0270
+  type: complex
+[filter]
+  spectral_slope: -0.0361
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: IFFT Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/IFFT.html
+// Tags: IFFT, Classes, spectral
+// ---
+// --- Example 1 ---
+// without any modification, convert FFT chain (frequency domain signal) back to audio (time domain signal)
+(
+{   var in, chain;
+    in = WhiteNoise.ar;
+    chain = FFT(LocalBuf(2048), in);
+    IFFT.ar(chain) * -20.dbamp // inverse FFT
+}.play;
+)

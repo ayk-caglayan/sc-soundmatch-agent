@@ -1,0 +1,38 @@
+=== EXAMPLE: scdoc_Guides_Multichannel-Expansion_ex2 ===
+
+DESCRIPTION: A very_bright clean sound, with saw_like oscillator character around 51 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.8740
+  harmonic_decay_rate: -1.9881
+  harmonic_regularity: 0.9228
+  pitch_clarity: 2.0661
+  inharmonicity: 0.0291
+  type: saw_like
+[filter]
+  spectral_slope: -9.5837
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Multichannel Expansion Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Multichannel-Expansion.html
+// Tags: Multichannel-Expansion, Guides
+// ---
+// --- Example 2 ---
+// look at the outputs of Pan2:
+Pan2.ar(PinkNoise.ar(0.1), FSinOsc.kr(3)).dump;
+
+play({ Pan2.ar(PinkNoise.ar(0.1), FSinOsc.kr(1)); });

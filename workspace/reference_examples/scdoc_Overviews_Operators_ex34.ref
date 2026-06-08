@@ -1,0 +1,41 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex34 ===
+
+DESCRIPTION: A dark pure_tone sound, with fm_or_inharmonic oscillator character around 100 Hz, featuring instant attack and percussive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: dark
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 100.0000
+  harmonic_decay_rate: 2.9030
+  harmonic_regularity: 0.1364
+  pitch_clarity: 22.5405
+  inharmonicity: 0.6032
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -14.8832
+  resonance_freq: 796.7285
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 34
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 34 ---
+(
+{
+    var a, b;
+    a = FSinOsc.ar(800);
+    b = FSinOsc.ar(XLine.kr(200,500,5));
+    ((a * a * b) - (a * b * b)) * 0.125
+}.play)

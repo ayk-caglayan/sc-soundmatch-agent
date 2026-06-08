@@ -1,0 +1,47 @@
+=== EXAMPLE: scdoc_Classes_LeastChange_ex1 ===
+
+DESCRIPTION: A very_bright mixed sound, with saw_like oscillator character around 50 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -0.3301
+  harmonic_regularity: 0.9445
+  pitch_clarity: 16.8013
+  inharmonicity: 0.0325
+  type: saw_like
+[filter]
+  spectral_slope: -17.0926
+  resonance_freq: 6093.8965
+
+SUPERCOLLIDER CODE:
+// Title: LeastChange Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LeastChange.html
+// Tags: LeastChange, Classes
+// ---
+// --- Example 1 ---
+(
+d = { |amp = 1.0|
+    var in1, in2;
+    in1 = LFNoise0.ar(800, amp);
+    in2 = SinOsc.ar(800);
+    LeastChange.ar(in1, in2) * 0.1;
+}.play;
+)
+
+d.set(\amp, 0.1);
+d.set(\amp, 0);
+d.set(\amp, 3);
+d.free;

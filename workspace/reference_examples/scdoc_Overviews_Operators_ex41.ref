@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex41 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with fm_or_inharmonic oscillator character around 323 Hz, featuring instant attack and percussive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_dark
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 323.0297
+  harmonic_decay_rate: 7.9671
+  harmonic_regularity: 0.4129
+  pitch_clarity: 45.8298
+  inharmonicity: 0.2643
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -9.2154
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 41
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 41 ---
+{ (FSinOsc.ar(800) sqrdif: FSinOsc.ar(XLine.kr(200,500,5))) * 0.125 }.play;

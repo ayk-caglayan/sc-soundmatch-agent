@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex67 ===
+
+DESCRIPTION: A dark clean sound, with sine_like oscillator character around 501 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 501.0658
+  harmonic_decay_rate: -4.5471
+  harmonic_regularity: 0.9930
+  pitch_clarity: 24.5909
+  inharmonicity: 0.5621
+  type: sine_like
+[filter]
+  spectral_slope: -17.7515
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 67
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 67 ---
+{ Blip.ar(Latch.ar(WhiteNoise.ar, Impulse.ar(9)) * 400 + 500, 4, 0.2) }.play;
+{ Blip.ar(Latch.ar(SinOsc.ar(0.3), Impulse.ar(9)) * 400 + 500, 4, 0.2) }.play;

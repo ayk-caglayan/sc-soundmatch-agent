@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Guides_Multichannel-Expansion_ex21 ===
+
+DESCRIPTION: A neutral pure_tone sound, with complex oscillator character around 100 Hz, featuring punchy attack and compressed envelope, with evolving spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: neutral
+  crest_factor_db: compressed
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: evolving
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 100.0000
+  harmonic_decay_rate: 13.6952
+  harmonic_regularity: 0.6937
+  pitch_clarity: 378.9508
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -23.0309
+  resonance_freq: 559.8633
+
+SUPERCOLLIDER CODE:
+// Title: Multichannel Expansion Example 21
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Multichannel-Expansion.html
+// Tags: Multichannel-Expansion, Guides
+// ---
+// --- Example 21 ---
+{ Pan2.ar(SinOsc.ar([500,600]),[-0.5,0.5]).sum }.play;

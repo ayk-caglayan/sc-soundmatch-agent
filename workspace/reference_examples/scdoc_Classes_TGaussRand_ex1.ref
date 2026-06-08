@@ -1,0 +1,46 @@
+=== EXAMPLE: scdoc_Classes_TGaussRand_ex1 ===
+
+DESCRIPTION: A dark clean sound, with sine_like oscillator character around 800 Hz, featuring moderate attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: moderate
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -5.0343
+  harmonic_regularity: 0.9752
+  pitch_clarity: 61.1187
+  inharmonicity: 0.3807
+  type: sine_like
+[filter]
+  spectral_slope: -10.4134
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: TGaussRand Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/TGaussRand.html
+// Tags: TGaussRand, Classes
+// ---
+// --- Example 1 ---
+(
+{
+    var trig;
+    trig = Dust.kr(10);
+    Pan2.ar(SinOsc.ar(
+            TGaussRand.kr(300, 3000, trig)
+        ),
+        TGaussRand.kr(-1, 1, trig),
+        0.1
+    )
+}.play;
+)

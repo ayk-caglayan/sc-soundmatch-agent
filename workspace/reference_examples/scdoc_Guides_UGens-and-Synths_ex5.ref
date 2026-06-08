@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Guides_UGens-and-Synths_ex5 ===
+
+DESCRIPTION: A dark pure_tone sound, with complex oscillator character around 800 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 800.0000
+  harmonic_decay_rate: -15.9874
+  harmonic_regularity: 0.5007
+  pitch_clarity: 101.4522
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -3.7276
+  resonance_freq: 796.7285
+
+SUPERCOLLIDER CODE:
+// Title: Unit Generators and Synths Example 5
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/UGens-and-Synths.html
+// Tags: UGens-and-Synths, Guides
+// ---
+// --- Example 5 ---
+{ FSinOsc.ar(800, 0, 0.2) }.play; // create and play a sine oscillator at 800 Hz

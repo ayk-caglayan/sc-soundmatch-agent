@@ -1,0 +1,45 @@
+=== EXAMPLE: scdoc_Classes_Stethoscope_ex6 ===
+
+DESCRIPTION: A very_bright clean sound, with fm_or_inharmonic oscillator character around 189 Hz, featuring instant attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 188.7749
+  harmonic_decay_rate: 0.3155
+  harmonic_regularity: 0.2732
+  pitch_clarity: 173.7646
+  inharmonicity: 0.4872
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -10.0976
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Stethoscope Example 6
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Stethoscope.html
+// Tags: Stethoscope, Classes, oscillator
+// ---
+// --- Example 6 ---
+(
+{ 
+    var f = { |l,h| SinOsc.kr(0.1, {pi.rand}).range(l, h) } ;
+    Pulse.ar({ f.(20, 1000) }!6, { f.(0.0, 1) }!6, { f.(0.0, 1.0) }!6) 
+}.play;
+)
+
+c = s.play;
+c.numChannels = 6;
+c.scopeView.waveColors = [Color.red, Color.red, Color.cyan, Color.cyan, Color.white, Color.white];
+c.style = 2;

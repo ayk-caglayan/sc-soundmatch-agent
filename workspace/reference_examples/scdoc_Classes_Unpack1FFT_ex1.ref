@@ -1,0 +1,53 @@
+=== EXAMPLE: scdoc_Classes_Unpack1FFT_ex1 ===
+
+DESCRIPTION: A dark gritty sound, with fm_or_inharmonic oscillator character around 1059 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1058.6639
+  harmonic_decay_rate: -10.4758
+  harmonic_regularity: 0.6705
+  pitch_clarity: 12.6384
+  inharmonicity: 0.1859
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -20.4425
+  resonance_freq: 775.1953
+
+SUPERCOLLIDER CODE:
+// Title: Unpack1FFT Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Unpack1FFT.html
+// Tags: Unpack1FFT, Classes, spectral
+// ---
+// --- Example 1 ---
+// Let's extract the DC component - i.e. the magnitude at binindex zero.
+(
+{
+    var sig, chain, stream, windowStarts, demand;
+    var fftsize = 1024;
+
+    sig = SinOsc.ar(LFDNoise3.kr(LFNoise0.kr(1) * 40 + 60) * 700 + 800);
+
+    chain = FFT(LocalBuf(fftsize), sig);
+    stream = Unpack1FFT(chain, bufsize: fftsize, binindex: 0, whichmeasure: 0);
+
+    // each time an FFT window starts, the unpacker returns a new value
+    windowStarts = chain > -1;
+    demand = Demand.kr(windowStarts, 0, stream);
+    demand.poll(windowStarts);
+
+    sig * 0.05
+}.play
+)

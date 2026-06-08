@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Classes_BRZ2_ex2 ===
+
+DESCRIPTION: A very_bright mixed sound, with complex oscillator character around 52 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 52.0666
+  harmonic_decay_rate: -0.0273
+  harmonic_regularity: 0.1622
+  pitch_clarity: 9.0697
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -3.8451
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: BRZ2 Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/BRZ2.html
+// Tags: BRZ2, Classes
+// ---
+// --- Example 2 ---
+// Compare:
+
+{ WhiteNoise.ar(0.25) }.play;
+
+{ BRZ2.ar(WhiteNoise.ar(0.25)) }.play;

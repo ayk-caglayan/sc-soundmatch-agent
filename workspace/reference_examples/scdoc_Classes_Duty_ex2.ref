@@ -1,0 +1,59 @@
+=== EXAMPLE: scdoc_Classes_Duty_ex2 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 283 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 282.8427
+  harmonic_decay_rate: -13.3264
+  harmonic_regularity: 0.5465
+  pitch_clarity: 63.1154
+  inharmonicity: 0.0784
+  type: complex
+[filter]
+  spectral_slope: -5.3645
+  resonance_freq: 301.4648
+
+SUPERCOLLIDER CODE:
+// Title: Duty Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Duty.html
+// Tags: Duty, Classes
+// ---
+// --- Example 2 ---
+(
+    {
+        var freq;
+        freq = Duty.kr(
+                Dseq([0.2, 0.3, 0.4, Dseq([1, 1, 1, 2, 1, 2], inf)]) / 2,
+                Dust.kr(1), // control rate reset
+                Dseq([0, 1, 2, Dseq([1, 2, 3, 4, 5], inf)])
+            ) * 30 + 250;
+        SinOsc.ar(freq * [1, 1.01]) * 0.1
+
+    }.play;
+)
+
+(
+    {
+        var freq;
+        freq = Duty.kr(
+                Dseq([0.2, 0.3, 0.4, Dseq([1, 1, 1, 2, 1, 2], inf)]) / 2,
+                Dseq([1, 2, 4, 5], inf), // demand rate reset
+                Dseq([0, 1, 2, Dseq([1, 2, 3, 4, 5], inf)])
+            ) * 30 + 250;
+        SinOsc.ar(freq * [1, 1.01]) * 0.1
+
+    }.play;
+)

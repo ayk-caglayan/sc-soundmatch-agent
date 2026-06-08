@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Classes_Klank_ex2 ===
+
+DESCRIPTION: A neutral pure_tone sound, with fm_or_inharmonic oscillator character around 833 Hz, featuring punchy attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: neutral
+  crest_factor_db: impulsive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 833.0097
+  harmonic_decay_rate: -8.3697
+  harmonic_regularity: 0.3267
+  pitch_clarity: 24.8688
+  inharmonicity: 0.5165
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -13.3599
+  resonance_freq: 925.9277
+
+SUPERCOLLIDER CODE:
+// Title: Klank Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Klank.html
+// Tags: Klank, Classes
+// ---
+// --- Example 2 ---
+(
+play({
+    Klank.ar(`[
+        Array.rand(12, 800.0, 4000.0),         // frequencies
+        nil,                             // amplitudes (default to 1.0)
+        Array.rand(12, 0.1, 2)                // ring times
+        ], Decay.ar(Impulse.ar(4), 0.03, ClipNoise.ar(0.01)))
+})
+)

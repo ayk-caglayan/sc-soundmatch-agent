@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_FBSineN_ex3 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with square_like oscillator character around 700 Hz, featuring very_slow attack and compressed envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: compressed
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 700.4749
+  harmonic_decay_rate: -6.1224
+  harmonic_regularity: 0.9696
+  pitch_clarity: 68.9827
+  inharmonicity: 0.6283
+  type: square_like
+[filter]
+  spectral_slope: -0.9607
+  resonance_freq: 710.5957
+
+SUPERCOLLIDER CODE:
+// Title: FBSineN Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/FBSineN.html
+// Tags: FBSineN, Classes, oscillator
+// ---
+// --- Example 3 ---
+// increase feedback
+{ FBSineN.ar(SampleRate.ir, 1, Line.kr(0.01, 4, 10), 1, 0.1) * 0.2 }.play(s);

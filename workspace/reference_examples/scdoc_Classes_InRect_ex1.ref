@@ -1,0 +1,59 @@
+=== EXAMPLE: scdoc_Classes_InRect_ex1 ===
+
+DESCRIPTION: A very_bright pure_tone sound, with sine_like oscillator character around 400 Hz, featuring instant attack and impulsive envelope, with chaotic spectral movement, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 400.0000
+  harmonic_decay_rate: -4.0001
+  harmonic_regularity: 0.9801
+  pitch_clarity: 7.6987
+  inharmonicity: 0.0083
+  type: sine_like
+[filter]
+  spectral_slope: -7.2859
+  resonance_freq: 409.1309
+
+SUPERCOLLIDER CODE:
+// Title: InRect Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/InRect.html
+// Tags: InRect, Classes
+// ---
+// --- Example 1 ---
+// We'll hear the sawtooth wave when the two sine oscillators are both in the region x = 0.0 to 0.5, y = 0.5 to 1.0
+(
+{
+    InRect.ar(
+        SinOsc.ar(1), SinOsc.ar(1.3), Rect(0, 0.5, 0.5, 0.5)
+    ) * LFSaw.ar(44, 0, 0.1)
+}.play
+)
+
+// Stereo effect
+(
+{
+    InRect.ar(
+        LFNoise0.ar([140, 141]), LFNoise0.ar(143), Rect(0, 0, 0.5, 1)
+    ).lag(0.1) * LFSaw.ar(SinOsc.ar(10, 0, 5, 400), 0, 0.1)
+}.play
+)
+
+// For the Rect, create as left, 'top', width, height;
+r = Rect(0, 0, 1, 1)
+
+r.left
+r.top
+r.right
+r.bottom

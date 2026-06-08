@@ -1,0 +1,38 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex13 ===
+
+DESCRIPTION: A dark gritty sound, with noise oscillator character around 1330 Hz, featuring very_slow attack and sustained envelope, with chaotic spectral movement, energy distribution is late, and filtered with resonant_steep_rolloff character.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: moderate
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: late
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1329.9806
+  harmonic_decay_rate: -3.4077
+  harmonic_regularity: 0.9016
+  pitch_clarity: 177.7396
+  inharmonicity: 0.1373
+  type: noise
+[filter]
+  spectral_slope: -19.2100
+  resonance_freq: 796.7285
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 13
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 13 ---
+{ FSinOsc.ar(800,0,0.1) }.play;
+// FSinOsc should not be frequency modulated.
+// Since it is based on a filter at the edge of stability, it will blow up:
+{ FSinOsc.ar(FSinOsc.kr(FSinOsc.kr(0.2,0,8,10),0, 400,800),0,0.1) }.play;

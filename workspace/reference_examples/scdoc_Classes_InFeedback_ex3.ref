@@ -1,0 +1,52 @@
+=== EXAMPLE: scdoc_Classes_InFeedback_ex3 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -15.9794
+  harmonic_regularity: 0.5007
+  pitch_clarity: 96.6657
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -6.0632
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: InFeedback Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/InFeedback.html
+// Tags: InFeedback, Classes
+// ---
+// --- Example 3 ---
+(
+var play, imp, initial;
+SynthDef("testRes", {
+
+play = InFeedback.ar(10, 1); // 10 is feedback channel
+imp = Impulse.ar(1);
+
+// feedback
+OffsetOut.ar(10, DelayC.ar(imp + (play * 0.995), 1,
+    440.reciprocal - ControlRate.ir.reciprocal)); // subtract block size
+
+OffsetOut.ar(0, play);
+
+}).play(s);
+
+// Compare with this for tuning
+{ SinOsc.ar(440, 0, 0.2) }.play(s, 1);
+)

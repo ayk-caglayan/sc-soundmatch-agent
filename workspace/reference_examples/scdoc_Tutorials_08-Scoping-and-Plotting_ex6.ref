@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Tutorials_08-Scoping-and-Plotting_ex6 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 441 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -14.8272
+  harmonic_regularity: 0.5007
+  pitch_clarity: 122.0417
+  inharmonicity: 0.0014
+  type: complex
+[filter]
+  spectral_slope: -5.0630
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: 08. Scoping and Plotting Example 6
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Tutorials/Getting-Started/08-Scoping-and-Plotting.html
+// Tags: 08-Scoping-and-Plotting, Tutorials
+// ---
+// --- Example 6 ---
+{ [SinOsc.ar(440, 0, 0.2), SinOsc.ar(442, 0, 0.2)] }.play;
+s.play;

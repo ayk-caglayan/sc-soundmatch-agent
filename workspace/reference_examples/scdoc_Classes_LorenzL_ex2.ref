@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Classes_LorenzL_ex2 ===
+
+DESCRIPTION: A neutral mixed sound, with saw_like oscillator character around 54 Hz, featuring very_slow attack and percussive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: neutral
+  crest_factor_db: percussive
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 53.8991
+  harmonic_decay_rate: 0.3543
+  harmonic_regularity: 0.9291
+  pitch_clarity: 10.8948
+  inharmonicity: 0.0416
+  type: saw_like
+[filter]
+  spectral_slope: -38.5902
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: LorenzL Example 2
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LorenzL.html
+// Tags: LorenzL, Classes
+// ---
+// --- Example 2 ---
+// randomly modulate params
+(
+{ LorenzL.ar(
+    SampleRate.ir,
+    LFNoise0.kr(1, 2, 10),
+    LFNoise0.kr(1, 20, 38),
+    LFNoise0.kr(1, 1.5, 2)
+) * 0.2 }.play(s);
+)

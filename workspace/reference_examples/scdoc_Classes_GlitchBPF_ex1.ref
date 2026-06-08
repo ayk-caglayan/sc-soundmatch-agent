@@ -1,0 +1,44 @@
+=== EXAMPLE: scdoc_Classes_GlitchBPF_ex1 ===
+
+DESCRIPTION: A dark clean sound, with saw_like oscillator character around 50 Hz, featuring very_slow attack and compressed envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: dark
+  crest_factor_db: compressed
+  envelope_flatness: dynamic
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 50.0000
+  harmonic_decay_rate: -2.5220
+  harmonic_regularity: 0.9830
+  pitch_clarity: 30.7265
+  inharmonicity: 0.1987
+  type: saw_like
+[filter]
+  spectral_slope: -7.6414
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: GlitchBPF Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/GlitchBPF.html
+// Tags: GlitchBPF, Classes, filter
+// ---
+// --- Example 1 ---
+//code that utilizes the glitch.
+//warning!  extremely loud.
+//note: might not sound the same on all soundcards
+(
+{GlitchBPF.ar(
+Â  Â  ClipNoise.ar(1.dup),
+Â  Â  0.5,
+Â  Â  SinOsc.kr(1, 10)
+)}.play;
+)

@@ -1,0 +1,38 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex12 ===
+
+DESCRIPTION: A dark gritty sound, with noise oscillator character around 779 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 779.4768
+  harmonic_decay_rate: -10.8698
+  harmonic_regularity: 0.7652
+  pitch_clarity: 26.0206
+  inharmonicity: 0.3378
+  type: noise
+[filter]
+  spectral_slope: -18.0624
+  resonance_freq: 818.2617
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 12
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 12 ---
+{ SinOsc.ar(SinOsc.kr(SinOsc.kr(0.2,0,8,10),0, 400,800),0,0.1) }.play;
+{ SinOsc.ar(SinOsc.kr(0.2, 0, 400,800),0,0.1) }.play;
+{ SinOsc.ar(800,0,0.1) }.play;
+{ SinOsc.ar(XLine.kr(100,15000,6),0,0.1) }.play;

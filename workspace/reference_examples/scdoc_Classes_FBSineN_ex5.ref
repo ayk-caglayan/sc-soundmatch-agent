@@ -1,0 +1,36 @@
+=== EXAMPLE: scdoc_Classes_FBSineN_ex5 ===
+
+DESCRIPTION: A very_bright mixed sound, with saw_like oscillator character around 639 Hz, featuring very_slow attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 638.6387
+  harmonic_decay_rate: -1.5417
+  harmonic_regularity: 0.9637
+  pitch_clarity: 56.0871
+  inharmonicity: 0.5225
+  type: saw_like
+[filter]
+  spectral_slope: -10.6724
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: FBSineN Example 5
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/FBSineN.html
+// Tags: FBSineN, Classes, oscillator
+// ---
+// --- Example 5 ---
+// modulate frequency and index multiplier
+{ FBSineN.ar(LFNoise2.kr(1, 1e4, 1e4), LFNoise2.kr(1, 16, 17), 1, 1.005, 0.7) * 0.2 }.play(s);

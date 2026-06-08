@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_UGen_ex8 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 301 Hz, featuring moderate attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: moderate
+  brightness: very_dark
+  crest_factor_db: dynamic
+  envelope_flatness: moderate
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 301.3973
+  harmonic_decay_rate: -13.7553
+  harmonic_regularity: 0.5008
+  pitch_clarity: 12.7651
+  inharmonicity: 0.0041
+  type: complex
+[filter]
+  spectral_slope: -3.5207
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: UGen Example 8
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/UGen.html
+// Tags: UGen, Classes
+// ---
+// --- Example 8 ---
+{ SinOsc.ar(300, 0, 0.5) * SinOsc.kr(2).unipolar * 0.1 }.play;

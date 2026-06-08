@@ -1,0 +1,49 @@
+=== EXAMPLE: scdoc_Classes_DiodeRingMod_ex1 ===
+
+DESCRIPTION: A dark noisy sound, with noise characteristics, featuring instant attack and impulsive envelope, with chaotic spectral movement, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: dark
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: noisy
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 0.0000
+  harmonic_decay_rate: 0.0000
+  harmonic_regularity: 0.0000
+  pitch_clarity: 0.0981
+  inharmonicity: 0.0000
+  type: noise
+[filter]
+  spectral_slope: -2.8090
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: DiodeRingMod Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/DiodeRingMod.html
+// Tags: DiodeRingMod, Classes
+// ---
+// --- Example 1 ---
+{DiodeRingMod.ar(SinOsc.ar(3700 * ([1, 1.1, 1.2] * SinOsc.ar(200).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * 0.5, 0, 0.04) * 0.1}.play
+
+{DiodeRingMod.ar(SinOsc.ar(18000 * ([1, 1.1, 1.2] * SinOsc.ar(200).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * 1/6, 0, 0.02) * 0.1}.play
+
+{DiodeRingMod.ar(SinOsc.ar(1800 * ([1, 1.1, 1.2] * SinOsc.ar(200).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * LFPulse.ar(10.3).range(1/6, 1/2), 0, 0.02) * 0.1}.play
+
+{DiodeRingMod.ar(SinOsc.ar(800 * ([1, 1.1, 1.2] * SinOsc.ar(200).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * 1/32, 0, 0.2) * 0.1}.play
+
+{DiodeRingMod.ar(SinOsc.ar(400 * ([1, 1.1, 1.2] * SinOsc.ar(200).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * 1/32, 0, 0.2) * 0.1}.play
+
+{DiodeRingMod.ar(SinOsc.ar(200 * ([1, 1.1, 1.2] * SinOsc.ar(200).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * 1/32, 0, 0.2) * 0.1}.play
+
+{DiodeRingMod.ar(SinOsc.ar(100 * ([1, 1.1, 1.2] * SinOsc.ar(200).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * 1/32, 0, 0.2) * 0.1}.play
+
+{DiodeRingMod.ar(SinOsc.ar(40 * ([1, 1.1, 1.2] * SinOsc.ar(50).range(1, 2))), SinOsc.ar(100 * [0.75, 1, 0.5])).sum * 0.2 * LFPulse.ar(10.3 * 1/32, 0, 0.4) * 0.5}.play

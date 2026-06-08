@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex47 ===
+
+DESCRIPTION: A dark pure_tone sound, with square_like oscillator character around 1002 Hz, featuring punchy attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1002.1316
+  harmonic_decay_rate: -7.7304
+  harmonic_regularity: 0.9530
+  pitch_clarity: 235.3394
+  inharmonicity: 0.2940
+  type: square_like
+[filter]
+  spectral_slope: -4.7330
+  resonance_freq: 990.5273
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 47
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 47 ---
+{ FSinOsc.ar(500).scaleneg(Line.ar(1,-1,4)) }.play;

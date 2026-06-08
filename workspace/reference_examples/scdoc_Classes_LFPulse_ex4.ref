@@ -1,0 +1,35 @@
+=== EXAMPLE: scdoc_Classes_LFPulse_ex4 ===
+
+DESCRIPTION: A very_dark mixed sound, with square_like oscillator character around 441 Hz, featuring punchy attack and percussive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: percussive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 441.2715
+  harmonic_decay_rate: -9.4070
+  harmonic_regularity: 0.8111
+  pitch_clarity: 10.3619
+  inharmonicity: 0.5295
+  type: square_like
+[filter]
+  spectral_slope: -14.1156
+  resonance_freq: 430.6641
+
+SUPERCOLLIDER CODE:
+// Title: LFPulse Example 4
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/LFPulse.html
+// Tags: LFPulse, Classes, oscillator, modulation
+// ---
+// --- Example 4 ---
+{ LFPulse.kr(XLine.kr(1, 200, 10), 0, 0.2) * SinOsc.ar(440) * 0.1 }.play;

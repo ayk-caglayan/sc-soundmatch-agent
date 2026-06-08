@@ -1,0 +1,39 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex20 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 501 Hz, featuring very_slow attack and sustained envelope, filtered with resonant_steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: stable
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 501.0658
+  harmonic_decay_rate: -14.8302
+  harmonic_regularity: 0.5311
+  pitch_clarity: 485.8971
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -5.5421
+  resonance_freq: 495.2637
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 20
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 20 ---
+{ // distorts and envelopes z
+var z;
+z = FSinOsc.ar(500);
+z min: FSinOsc.ar(0.1);
+}.play;

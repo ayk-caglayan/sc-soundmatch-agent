@@ -1,0 +1,38 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex5 ===
+
+DESCRIPTION: A very_bright mixed sound, with saw_like oscillator character around 893 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: mixed
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 892.7977
+  harmonic_decay_rate: -1.9219
+  harmonic_regularity: 0.8366
+  pitch_clarity: 17.3978
+  inharmonicity: 0.1859
+  type: saw_like
+[filter]
+  spectral_slope: -9.1567
+  resonance_freq: 968.9941
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 5
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 5 ---
+{ LFSaw.ar(LFSaw.kr(LFSaw.kr(0.2,0,8,10),0, 400,800),0,0.1) }.play;
+{ LFSaw.ar(LFSaw.kr(0.2, 0, 400,800),0,0.1) }.play;
+{ LFSaw.ar(100,0,0.1) }.play;
+{ LFSaw.ar(XLine.kr(100,15000,6),0,0.1) }.play;

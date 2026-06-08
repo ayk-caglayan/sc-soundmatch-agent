@@ -1,0 +1,68 @@
+=== EXAMPLE: scdoc_Classes_Klang_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with complex oscillator character around 267 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, energy distribution is front_heavy, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_dark
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: front_heavy
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 266.9680
+  harmonic_decay_rate: 0.4405
+  harmonic_regularity: 0.0046
+  pitch_clarity: 3.7301
+  inharmonicity: 0.0029
+  type: complex
+[filter]
+  spectral_slope: -5.8231
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Klang Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Klang.html
+// Tags: Klang, Classes, oscillator
+// ---
+// --- Example 1 ---
+play({ Klang.ar(`[[800, 1000, 1200], [0.3, 0.3, 0.3], [pi, pi, pi]], 1, 0) * 0.4 });
+
+play({ Klang.ar(`[[800, 1000, 1200], nil, nil], 1, 0) * 0.25 });
+
+play({ Klang.ar(`[Array.rand(12, 600.0, 1000.0), nil, nil], 1, 0) * 0.05 });
+
+
+
+(
+{
+loop({
+    play({
+        Pan2.ar(Klang.ar(`[Array.rand(12, 200.0, 2000.0), nil, nil], 1, 0), 1.0.rand)
+             * EnvGen.kr(Env.sine(4), 1, 0.02, doneAction: Done.freeSelf);
+    });
+    2.wait;
+})
+}.fork;
+)
+
+// Multichannel expansion:
+
+(
+{
+loop({
+    play({
+        var nPartials = 12, nChans = 5, n = nPartials * nChans;
+        Splay.ar(Klang.ar(`[{ { rrand(200.0, 2000.0) } ! nPartials } ! nChans, nil, nil], 1, 0))
+             * EnvGen.kr(Env.sine(4), 1, 0.02, doneAction: Done.freeSelf);
+    });
+    2.wait;
+})
+}.fork;
+)

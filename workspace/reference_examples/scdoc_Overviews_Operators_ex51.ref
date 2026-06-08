@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex51 ===
+
+DESCRIPTION: A neutral pure_tone sound, with complex oscillator character around 1002 Hz, featuring instant attack and dynamic envelope, with evolving spectral movement, energy distribution is front_heavy, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: neutral
+  crest_factor_db: dynamic
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: evolving
+  spectral_slope: steep_rolloff
+  temporal_centroid: front_heavy
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 1002.1316
+  harmonic_decay_rate: -3.7907
+  harmonic_regularity: 0.0575
+  pitch_clarity: 163.9248
+  inharmonicity: 0.0000
+  type: complex
+[filter]
+  spectral_slope: -2.3399
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 51
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 51 ---
+(
+{
+    var a;
+    a = Line.ar(-2, 2, 0.01);
+    a.excess
+}.plot
+)
+
+{ FSinOsc.ar(1000).excess(Line.kr(0,1,8)) }.play;

@@ -1,0 +1,37 @@
+=== EXAMPLE: scdoc_Guides_UGens-and-Synths_ex6 ===
+
+DESCRIPTION: A bright pure_tone sound, with complex oscillator character around 809 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, and filtered with steep_rolloff character.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: moderate
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 809.2956
+  harmonic_decay_rate: -8.9148
+  harmonic_regularity: 0.6623
+  pitch_clarity: 101.6275
+  inharmonicity: 0.0031
+  type: complex
+[filter]
+  spectral_slope: -17.9443
+  resonance_freq: 775.1953
+
+SUPERCOLLIDER CODE:
+// Title: Unit Generators and Synths Example 6
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/UGens-and-Synths.html
+// Tags: UGens-and-Synths, Guides
+// ---
+// --- Example 6 ---
+FSinOsc.ar(800, 0.0, 0.2) + BrownNoise.ar(0.2); // press enter and look at the post window
+
+{FSinOsc.ar(800, 0.0, 0.2) + BrownNoise.ar(0.2)}.play; // play it

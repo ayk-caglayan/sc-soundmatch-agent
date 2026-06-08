@@ -1,0 +1,43 @@
+=== EXAMPLE: scdoc_Guides_FFT-Overview_ex5 ===
+
+DESCRIPTION: A neutral gritty sound, with fm_or_inharmonic oscillator character around 713 Hz, featuring instant attack and impulsive envelope, with chaotic spectral movement, energy distribution is early, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: instant
+  brightness: neutral
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: gritty
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: early
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 712.7190
+  harmonic_decay_rate: -2.6350
+  harmonic_regularity: 0.4861
+  pitch_clarity: 27.0382
+  inharmonicity: 0.1779
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -2.3624
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: FFT Overview Example 5
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/FFT-Overview.html
+// Tags: FFT-Overview, Guides, spectral
+// ---
+// --- Example 5 ---
+(
+{
+  var in, chain;
+    in = Ringz.ar(Impulse.ar([2, 3]), [700, 800], 0.1) * 5; // stereo input
+    chain = FFT({ LocalBuf(2048) } ! 2, in); // array of two local buffers
+    chain = PV_RandComb(chain, 0.95, Impulse.kr(0.4));
+    IFFT(chain) // returns a stereo out
+}.play;
+)

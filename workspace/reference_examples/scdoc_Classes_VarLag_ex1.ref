@@ -1,0 +1,48 @@
+=== EXAMPLE: scdoc_Classes_VarLag_ex1 ===
+
+DESCRIPTION: A very_dark pure_tone sound, with fm_or_inharmonic oscillator character around 293 Hz, featuring punchy attack and sustained envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally simple.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_dark
+  crest_factor_db: sustained
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: simple
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 292.8171
+  harmonic_decay_rate: -6.3720
+  harmonic_regularity: 0.6758
+  pitch_clarity: 85.1547
+  inharmonicity: 0.5224
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -5.5925
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: VarLag Example 1
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/VarLag.html
+// Tags: VarLag, Classes, envelope
+// ---
+// --- Example 1 ---
+(
+// used to lag pitch
+{
+    SinOsc.ar(                              // sine wave
+        VarLag.kr(                            // lag the modulator
+            LFPulse.kr(1).range(100, 400),   // frequency modulator
+            0.2,                            // lag time
+            Line.kr(-8, 8, 15, doneAction: Done.freeSelf) // modulate shape
+        ),
+        0,                                  // sine phase
+        0.3                                 // sine amplitude
+    )
+}.play
+)

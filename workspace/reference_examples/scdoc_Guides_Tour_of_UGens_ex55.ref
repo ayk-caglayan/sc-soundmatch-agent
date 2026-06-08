@@ -1,0 +1,42 @@
+=== EXAMPLE: scdoc_Guides_Tour_of_UGens_ex55 ===
+
+DESCRIPTION: A very_bright noisy sound, with noise oscillator character around 53 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, energy distribution is early, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: very_bright
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: noisy
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: early
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 53.2800
+  harmonic_decay_rate: -0.0491
+  harmonic_regularity: 0.0073
+  pitch_clarity: 0.5757
+  inharmonicity: 0.3356
+  type: noise
+[filter]
+  spectral_slope: -8.9683
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Tour of UGens Example 55
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Guides/Tour_of_UGens.html
+// Tags: Tour_of_UGens, Guides
+// ---
+// --- Example 55 ---
+(
+{
+    var z;
+    z = Decay.ar(Dust.ar(1,0.5), 0.1, WhiteNoise.ar);
+    8.do { z = AllpassL.ar(z, 0.04, 0.04.rand, 2) };
+    z
+}.play;
+)

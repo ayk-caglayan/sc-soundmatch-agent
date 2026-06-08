@@ -1,0 +1,37 @@
+=== EXAMPLE: scdoc_Overviews_Operators_ex5 ===
+
+DESCRIPTION: A very_bright clean sound, with saw_like oscillator character around 364 Hz, featuring punchy attack and dynamic envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally rich.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: very_bright
+  crest_factor_db: dynamic
+  envelope_flatness: flat
+  harmonic_to_noise_ratio: clean
+  spectral_complexity_mean: rich
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 363.6388
+  harmonic_decay_rate: -1.3786
+  harmonic_regularity: 0.9495
+  pitch_clarity: 25.5359
+  inharmonicity: 0.9423
+  type: saw_like
+[filter]
+  spectral_slope: -3.0516
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Operators Example 5
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Overviews/Operators.html
+// Tags: Operators, Overviews
+// ---
+// --- Example 5 ---
+{
+    Saw.ar(Line.kr(24,108,10).midicps, 0.2)
+}.play

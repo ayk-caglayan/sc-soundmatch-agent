@@ -1,0 +1,45 @@
+=== EXAMPLE: scdoc_Classes_Klank_ex3 ===
+
+DESCRIPTION: A dark pure_tone sound, with fm_or_inharmonic oscillator character around 350 Hz, featuring punchy attack and impulsive envelope, with chaotic spectral movement, filtered with resonant_steep_rolloff character, and spectrally sparse.
+
+CATEGORIES:
+  attack_time: punchy
+  brightness: dark
+  crest_factor_db: impulsive
+  envelope_flatness: sustained
+  harmonic_to_noise_ratio: pure_tone
+  spectral_complexity_mean: sparse
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 350.2374
+  harmonic_decay_rate: 4.6193
+  harmonic_regularity: 0.0626
+  pitch_clarity: 11.8587
+  inharmonicity: 0.2274
+  type: fm_or_inharmonic
+[filter]
+  spectral_slope: -10.1704
+  resonance_freq: 1098.1934
+
+SUPERCOLLIDER CODE:
+// Title: Klank Example 3
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Klank.html
+// Tags: Klank, Classes
+// ---
+// --- Example 3 ---
+(
+{
+Klank.ar([ // the multichannel-expansion
+    `[[500, 1078, 1201.5, 1723], nil, [1, 1, 0.5, 0.3]], // left channel
+    `[[700, 1071, 1053, 1723], nil, [1, 1, 1, 1]] // right channel
+    ], Impulse.ar([1.5, 1.875], 0, 0.1))
+}.play
+);
+
+// expanding specs within the parameter array
+{ Klank.ar(`[[[800, 6000], 1071, [1153, 8000], 1723], nil, [1, 1, 1, 1]], Impulse.ar([2, 3], 0, 0.1)) }.play;

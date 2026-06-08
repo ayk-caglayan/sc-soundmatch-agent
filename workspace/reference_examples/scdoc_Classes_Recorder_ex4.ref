@@ -1,0 +1,38 @@
+=== EXAMPLE: scdoc_Classes_Recorder_ex4 ===
+
+DESCRIPTION: A bright noisy sound, with noise oscillator character around 62 Hz, featuring very_slow attack and impulsive envelope, with chaotic spectral movement, filtered with steep_rolloff character, and spectrally dense.
+
+CATEGORIES:
+  attack_time: very_slow
+  brightness: bright
+  crest_factor_db: impulsive
+  envelope_flatness: very_dynamic
+  harmonic_to_noise_ratio: noisy
+  spectral_complexity_mean: dense
+  spectral_flux_normalized: chaotic
+  spectral_slope: steep_rolloff
+  temporal_centroid: balanced
+
+SYNTHESIS CONCEPTS (key values):
+[oscillator]
+  fundamental_freq: 61.9138
+  harmonic_decay_rate: -0.1265
+  harmonic_regularity: 0.0233
+  pitch_clarity: 1.5298
+  inharmonicity: 0.0027
+  type: noise
+[filter]
+  spectral_slope: -24.3556
+  resonance_freq: 0.0000
+
+SUPERCOLLIDER CODE:
+// Title: Recorder Example 4
+// Author: SC Documentation
+// URL: http://doc.sccode.org/Classes/Recorder.html
+// Tags: Recorder, Classes
+// ---
+// --- Example 4 ---
+r = Recorder(s);
+{ GVerb.ar(Dust.ar(4)) }.play; // play on bus 64
+r.record(numChannels: 2);
+r.stopRecording;
