@@ -2,6 +2,13 @@
 
 Iterative sound matching: an LLM agent writes SuperCollider synthesis code, renders audio, and compares it to a target — guided by FluCoMa analysis and spectral metrics.
 
+- FluCoMa analysis of the target (partials, residual, templates A–E)
+- LLM agent writes SuperCollider `.scd` code each iteration
+- Code is executed (`sclang`) and rendered to `attempt_N.wav`
+- Spectral evaluate/compare loop drives the next revision
+- Plateau detection and architecture switching when stuck
+- Local models via Ollama (e.g. Qwen3.6)
+
 ## How it works
 
 ```text
