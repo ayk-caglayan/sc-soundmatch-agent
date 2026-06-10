@@ -19,6 +19,7 @@ TIMEOUT_SEC=28800   # 8 hours
 TARGET=""
 TELEGRAM_NOTIFY=true
 MODEL_ID="ollama/qwen3-coder-next:latest"
+OPTIMIZER_BUDGET=30
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -39,6 +40,10 @@ while [[ $# -gt 0 ]]; do
             MODEL_ID="$2"
             shift 2
             ;;
+        --optimizer-budget)
+            OPTIMIZER_BUDGET="$2"
+            shift 2
+            ;;
         --no-telegram)
             TELEGRAM_NOTIFY=false
             shift
@@ -51,6 +56,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --max-iter     Maximum refinement iterations (default: 85)"
             echo "  --threshold    Spectral convergence threshold (default: 0.4)"
             echo "  --model        Model id to use (default: ollama/qwen3-coder-next:latest)"
+            echo "  --optimizer-budget  Renders per parameter-optimization step (default: 30)"
             echo "  --no-telegram  Disable Telegram progress notifications"
             exit 0
             ;;
@@ -132,6 +138,7 @@ echo "Target:       $TARGET"
 echo "Model:        $MODEL_ID"
 echo "Max iter:     $MAX_ITER"
 echo "Threshold:    $THRESHOLD"
+echo "Opt budget:   $OPTIMIZER_BUDGET"
 echo "Run dir:      $RUN_DIR"
 echo "============================================"
 
@@ -164,6 +171,7 @@ cat > "$RUN_DIR/config.txt" <<EOF
 max_iterations: $MAX_ITER
 convergence_threshold: $THRESHOLD
 target_duration: $TARGET_DURATION
+optimizer_budget: $OPTIMIZER_BUDGET
 EOF
 echo "Run config written."
 

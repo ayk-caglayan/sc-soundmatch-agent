@@ -734,8 +734,48 @@ def sanitize_code(code):
 # NRT wrapping
 # ---------------------------------------------------------------------------
 
+# Deterministic-render seed. Injected at the top of the SynthDef body (after the
+# var declarations, which SC requires to come first) so that stochastic UGens
+# (WhiteNoise, LFNoise*, Dust, ClipNoise, ...) produce byte-identical output on
+# every render. Without this, the hill-climb and the parameter optimizer would be
+# comparing render noise rather than real changes.
+_DETERMINISM_SEED = "RandID.ir(0); RandSeed.ir(1, 56789);"
+
+
+def inject_determinism(code, seed_stmt=_DETERMINISM_SEED):
+    """Insert a one-shot RNG reseed after the leading `var` declarations.
+
+    SuperCollider requires all `var` declarations at the top of a function body,
+    so the seed statement is placed immediately after the last top-of-body `var`
+    line (or before the first real statement if there are none).
+    """
+    if 'RandSeed' in code:
+        return code  # already seeded
+
+    lines = code.splitlines()
+    insert_at = 0
+    seen_code = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith('//'):
+            if not seen_code:
+                insert_at = i + 1
+            continue
+        if stripped.startswith('var ') or stripped.startswith('var\t'):
+            insert_at = i + 1
+            seen_code = True
+        else:
+            if not seen_code:
+                insert_at = i
+            break
+
+    lines.insert(insert_at, seed_stmt)
+    return '\n'.join(lines)
+
+
 def wrap_code(code, wav_filename, duration=10.0):
     """Generate the full NRT rendering script from sanitized SynthDef body code."""
+    code = inject_determinism(code)
     indented_code = '\n'.join('    ' + line for line in code.splitlines())
 
     return f'''(

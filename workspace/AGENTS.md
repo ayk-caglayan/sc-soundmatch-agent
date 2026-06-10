@@ -4,7 +4,7 @@ Your run directory is `current_run/` (inside your workspace). Follow this protoc
 
 ## Setup
 
-1. Read `current_run/config.txt` to get `max_iterations`, `convergence_threshold`, and `target_duration`.
+1. Read `current_run/config.txt` to get `max_iterations`, `convergence_threshold`, `target_duration`, and `optimizer_budget`.
 2. Read `current_run/target_eval.txt` — it has three sections:
    - **AUDIO METRICS**: raw numeric values
    - **CATEGORIES**: brightness, attack_time, harmonic_to_noise_ratio, etc.
@@ -44,7 +44,7 @@ Write synthesis code to `current_run/attempt_N.scd`.
 
 **For N=1:** Start from Template D or E in `target_partials.txt`. These contain the exact partial frequencies, per-partial envelopes, frequency drift modulation, shaped residual noise, and percussive transient — all extracted from the target audio. Adapt the envelope shapes based on `target_eval.txt` categories.
 
-**For N>1:** Read `current_run/comparison_N-1.txt` and make targeted edits based on the CORRECTION PROMPT.
+**For N>1:** Read `current_run/comparison_N-1.txt`. Copy the **BASE CODE FOR NEXT ATTEMPT** section (the best attempt so far) as your starting point, then make ONE targeted change based on the CORRECTION PROMPT. Keep your `// @param` annotations.
 
 **RULES — your code goes inside a SynthDef body automatically:**
 
@@ -76,6 +76,14 @@ Write synthesis code to `current_run/attempt_N.scd`.
     - CORRECT: `aEnv = EnvGen.kr(Env.adsr(1.5, 4.0, 0.4, 10.0), doneAction: 2);`
 12. Put `doneAction: 2` on **exactly one** `EnvGen` — the first/primary partial envelope (as in Templates B–E). Do NOT put `doneAction: 2` on every partial.
 13. Do NOT add a global `aEnv` signal and then multiply `sig * aEnv` when per-partial envelopes already shape the amplitude. That double-gates the signal and shortens audible output.
+
+**TUNABLE PARAMETERS — required for the optimizer (Step 3b):**
+
+14. Mark 3–8 continuous parameters as tunable so the numeric optimizer can fine-tune them. The tunable MUST be a plain numeric literal assigned to a variable, with a trailing annotation `// @param <lo> <hi> [log]`:
+    - `cutoff = 3000;   // @param 800 8000 log`  (frequencies/times: use `log`)
+    - `noiseLevel = 0.05;  // @param 0.005 0.2 log`
+    - `modIndex = 3;    // @param 0.5 8.0`  (linear range)
+    Choose parameters that meaningfully affect the audio (filter cutoffs, noise/amp levels, modulation depths/rates, decay times). Keep `Env` *segment time* literals un-annotated (envelope timing rules above still apply) — annotate amplitudes, cutoffs, and modulation values instead. Do NOT annotate the partial frequencies you extracted from the target.
 
 ### Step 1b: Pre-Validate
 
@@ -119,6 +127,18 @@ Verify: `exec ls -la current_run/attempt_N.wav`
 
 If no WAV or sclang failed: fix code, redo steps 1b–3. Don't count failed synthesis as an iteration.
 
+### Step 3b: Optimize Parameters
+
+The baseline render proves your structure works. Now let the numeric optimizer tune the `// @param` values you annotated. It renders many candidates deterministically and keeps only improvements (guaranteed monotone), then overwrites `attempt_N.scd` with the best values and re-renders `attempt_N.wav`.
+
+Use `optimizer_budget` from `config.txt` and `target_duration` for `-d`:
+
+```
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget>
+```
+
+This is your numeric search — do NOT hand-tune the annotated parameters yourself. Spend your own edits on structure (oscillators, envelopes, architecture) and let this step handle the numbers. If it prints "No @param annotations found", go back to Step 1 and add 3–8 `// @param` annotations, then redo Steps 1b–3b.
+
 ### Step 4: Evaluate
 
 ```
@@ -128,7 +148,7 @@ exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/evaluate.py curr
 ### Step 5: Compare
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt
 ```
 
 Replace `N` with the actual iteration number.
@@ -142,15 +162,22 @@ Read `current_run/comparison_N.txt`.
 - If a **PLATEAU DETECTED** section appears → you MUST switch architecture as instructed in that section.
 - Otherwise: increment N, go to Step 1. Use CORRECTION PROMPT and CATEGORY MISMATCHES to guide revisions.
 
-### Revision Strategy (N > 1)
+### Revision Strategy (N > 1) — HILL-CLIMB
 
-**Read the CORRECTION PROMPT first** — it lists the top 3 priorities.
+The comparison report drives a strict hill-climb. Read these sections in order:
 
-**Make 1–3 targeted changes per iteration.** Don't rewrite from scratch unless the plateau rule triggers.
+1. **SCORE HISTORY** — shows every attempt's score and marks the BEST one.
+2. **NEXT-ATTEMPT INSTRUCTION** — tells you exactly what to do:
+   - *IMPROVED*: you just set a new best. Continue in the same direction.
+   - *REGRESSION*: your last change made things WORSE. You MUST start your next attempt from the **BASE CODE FOR NEXT ATTEMPT** section (this is the best attempt's code, NOT your last one). Discard the change that regressed and try a different one. Do NOT keep editing the worse code.
+3. **BASE CODE FOR NEXT ATTEMPT** — always start `attempt_{N+1}.scd` by copying this code, then apply ONE targeted change. This is the best result so far; never build on a worse attempt.
+4. **CORRECTION PROMPT** — the top 3 priorities to address with your one change.
+
+**Make exactly ONE structural change per iteration** (add/remove an oscillator, change an envelope shape, swap a filter, adjust modulation structure). Keep the `// @param` annotations so the optimizer can re-tune after your change. Do NOT hand-tune annotated numeric values — that is the optimizer's job. Do NOT rewrite from scratch unless the plateau rule triggers.
 
 **Plateau rule — mandatory architecture switch:**
 
-The comparison output will automatically detect plateaus (less than 2% improvement over last 2 iterations) and will include a PLATEAU DETECTED section with a ready-to-use code template. When you see this section, you MUST use the provided template as your new starting point.
+The comparison output detects plateaus automatically (no NEW best score for several iterations) and includes a PLATEAU DETECTED section with a ready-to-use code template whose frequencies are seeded from the target's dominant partials. When you see this section, you MUST use the provided template as your new starting point (add `// @param` annotations to it before Step 3b). After a switch you get a short grace window; if the new architecture cannot beat the best within 2 iterations, revert to the BASE CODE and try a different family.
 
 **Architecture families to try (in order of preference):**
 

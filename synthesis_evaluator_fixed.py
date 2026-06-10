@@ -271,7 +271,8 @@ class SynthesisEvaluator:
     
     def compare_with_reference(self, test_audio: np.ndarray,
                                ref_audio: np.ndarray,
-                               category_mismatches: int = 0) -> Dict[str, float]:
+                               category_mismatches: int = 0,
+                               category_penalty: Optional[float] = None) -> Dict[str, float]:
         """
         Compare test audio with reference audio.
 
@@ -283,7 +284,14 @@ class SynthesisEvaluator:
         Args:
             test_audio:           Synthesized audio (preprocessed)
             ref_audio:            Reference audio (preprocessed)
-            category_mismatches:  Optional count of mismatched categories (0-9)
+            category_mismatches:  Count of mismatched categories (0-9). Used only
+                                  as a fallback when ``category_penalty`` is None.
+            category_penalty:     Continuous penalty in [0, 1] (mean normalized
+                                  label distance across categories). Preferred over
+                                  ``category_mismatches`` because it varies smoothly
+                                  — a near-miss costs less than a 3-bin miss, so the
+                                  composite score does not jump when a metric merely
+                                  crosses a category threshold.
 
         Returns:
             Comparison metrics including a composite_score (lower is better).
@@ -343,7 +351,10 @@ class SynthesisEvaluator:
         # Weighted combination: spectral convergence is the primary term,
         # log_spectral_distance, envelope_distance, and category accuracy
         # add perceptual context.
-        cat_penalty = min(category_mismatches / 9.0, 1.0)
+        if category_penalty is not None:
+            cat_penalty = float(min(max(category_penalty, 0.0), 1.0))
+        else:
+            cat_penalty = min(category_mismatches / 9.0, 1.0)
         metrics['composite_score'] = float(
             0.4 * metrics['spectral_convergence']
             + 0.25 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
