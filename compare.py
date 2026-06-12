@@ -163,6 +163,16 @@ ARCHITECTURE_ORDER = [
     'struck_resonator', 'physical_model', 'fm_synthesis', 'resonator_bank',
 ]
 
+# Ordered list of architecture families used during the seeding phase.
+# The FluCoMa-template family is always seed 1 (written by the agent directly
+# from target_partials.txt templates, not from ARCHITECTURE_TEMPLATES).
+SEED_FAMILIES = [
+    'flucoma_template',
+    'struck_resonator',
+    'fm_synthesis',
+    'resonator_bank',
+]
+
 # Convergence control:
 #   PLATEAU_PATIENCE — iterations with no NEW best score before a plateau fires.
 #   SWITCH_GRACE     — iterations after an architecture switch during which we do
@@ -404,7 +414,39 @@ def build_correction_prompt(mismatches, top_deltas):
     return "\n".join(parts) if parts else "No significant corrections needed."
 
 
-def update_progress(output_dir, iteration, composite_score, seeded_templates=None):
+def read_run_config(progress_dir):
+    """Parse max_iterations, convergence_threshold, seed_count from config.txt."""
+    config = {
+        'max_iterations': 0,
+        'convergence_threshold': 0.0,
+        'seed_count': 0,
+    }
+    if not progress_dir:
+        return config
+    config_path = os.path.join(progress_dir, 'config.txt')
+    if not os.path.exists(config_path):
+        return config
+    try:
+        for line in Path(config_path).read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if not line or ':' not in line:
+                continue
+            key, _, val = line.partition(':')
+            key = key.strip()
+            val = val.strip()
+            if key == 'max_iterations':
+                config['max_iterations'] = int(val)
+            elif key == 'convergence_threshold':
+                config['convergence_threshold'] = float(val)
+            elif key == 'seed_count':
+                config['seed_count'] = int(val)
+    except (OSError, ValueError):
+        pass
+    return config
+
+
+def update_progress(output_dir, iteration, composite_score, seeded_templates=None,
+                    seed_count=0, arch=None, max_iterations=0, convergence_threshold=0.0):
     """Update progress.json with score history, elitism, and plateau handling.
 
     Plateau detection is based on lack of a NEW best score over the last
@@ -413,6 +455,12 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     fires, the next untried architecture is selected, recorded in
     ``architectures_tried``, and a SWITCH_GRACE window is opened so the new
     architecture is not immediately declared a plateau too.
+
+    When seed_count > 0 the first seed_count iterations form a seeding phase:
+    - plateau detection and regression labels are suppressed
+    - per-attempt architecture names are stored in attempt_architectures
+    - at the final seed iteration the patience window and architectures_tried
+      are both reset so the hill-climb phase starts clean
     """
     progress_path = os.path.join(output_dir, "progress.json")
 
@@ -420,7 +468,8 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
                 "plateau_detected": False, "architectures_tried": [],
                 "iters_since_best": 0, "last_switch_iteration": 0,
                 "switch_architecture": None, "regressed": False,
-                "delta_vs_best": 0.0}
+                "delta_vs_best": 0.0, "seed_count": 0,
+                "attempt_architectures": {}, "seed_scores": {}}
     if os.path.exists(progress_path):
         try:
             with open(progress_path) as f:
@@ -430,9 +479,25 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
 
     progress.setdefault('architectures_tried', [])
     progress.setdefault('last_switch_iteration', 0)
+    progress.setdefault('attempt_architectures', {})
+    progress.setdefault('seed_scores', {})
+    progress.setdefault('seed_count', seed_count)
+
+    # Keep seed_count up to date if caller provides it.
+    if seed_count > 0:
+        progress['seed_count'] = seed_count
+
+    effective_seed_count = progress.get('seed_count', 0)
+    in_seeding_phase = (effective_seed_count > 0 and iteration <= effective_seed_count)
 
     progress['scores'].append(composite_score)
     progress['iteration'] = iteration
+
+    # Record per-attempt architecture if provided.
+    if arch:
+        progress['attempt_architectures'][str(iteration)] = arch
+    if in_seeding_phase and arch:
+        progress['seed_scores'][arch] = composite_score
 
     is_new_best = (
         progress['best_score'] is None
@@ -445,28 +510,54 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     progress['iters_since_best'] = iteration - progress['best_attempt']
     progress['delta_vs_best'] = composite_score - progress['best_score']
     progress['is_new_best'] = is_new_best
-    progress['regressed'] = (
-        not is_new_best
-        and progress['best_attempt'] != iteration
-        and progress['delta_vs_best'] > IMPROVEMENT_EPS
-    )
 
-    grace_ok = (iteration - progress['last_switch_iteration']) > SWITCH_GRACE
-    plateau = (
-        len(progress['scores']) >= PLATEAU_PATIENCE
-        and progress['iters_since_best'] >= PLATEAU_PATIENCE
-        and grace_ok
-    )
+    # During the seeding phase, suppress regression labelling — seeds are
+    # intentionally independent attempts, not mutations of each other.
+    if in_seeding_phase:
+        progress['regressed'] = False
+    else:
+        progress['regressed'] = (
+            not is_new_best
+            and progress['best_attempt'] != iteration
+            and progress['delta_vs_best'] > IMPROVEMENT_EPS
+        )
+
+    # At the transition from seeding to hill-climb, prime the patience window
+    # so a plateau cannot fire immediately, and mark all seed families as tried.
+    if effective_seed_count > 0 and iteration == effective_seed_count:
+        progress['last_switch_iteration'] = effective_seed_count
+        seed_families_used = list(progress['attempt_architectures'].values())
+        for fam in seed_families_used:
+            if fam not in progress['architectures_tried'] and fam != 'flucoma_template':
+                progress['architectures_tried'].append(fam)
+
+    # Plateau detection is suppressed during seeding.
+    plateau = False
+    if not in_seeding_phase:
+        grace_ok = (iteration - progress['last_switch_iteration']) > SWITCH_GRACE
+        plateau = (
+            len(progress['scores']) - effective_seed_count >= PLATEAU_PATIENCE
+            and progress['iters_since_best'] >= PLATEAU_PATIENCE
+            and grace_ok
+        )
 
     progress['switch_architecture'] = None
     if plateau:
-        arch = _next_untried_architecture(progress)
-        progress['switch_architecture'] = arch
-        if arch not in progress['architectures_tried']:
-            progress['architectures_tried'].append(arch)
+        arch_switch = _next_untried_architecture(progress)
+        progress['switch_architecture'] = arch_switch
+        if arch_switch not in progress['architectures_tried']:
+            progress['architectures_tried'].append(arch_switch)
         progress['last_switch_iteration'] = iteration
 
     progress['plateau_detected'] = plateau
+
+    should_finish = (
+        (max_iterations > 0 and iteration >= max_iterations)
+        or (convergence_threshold > 0 and composite_score < convergence_threshold)
+    )
+    progress['should_finish'] = should_finish
+    progress['max_iterations'] = max_iterations
+    progress['convergence_threshold'] = convergence_threshold
 
     with open(progress_path, 'w') as f:
         json.dump(progress, f, indent=2)
@@ -475,8 +566,28 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
 
 
 def _next_untried_architecture(progress):
-    """Pick the next architecture not yet tried, cycling if all were tried."""
+    """Pick the next architecture family to try on a plateau.
+
+    When seed scores are available, prefer the best-scoring seed family that
+    has not yet been developed (lowest score = closest to target).  This makes
+    the plateau switch data-driven rather than relying on a fixed preference
+    list.  Falls back to ARCHITECTURE_ORDER when no seed data is present.
+    """
     tried = set(progress.get('architectures_tried', []))
+    seed_scores = progress.get('seed_scores', {})
+
+    if seed_scores:
+        # Filter to families that are in ARCHITECTURE_ORDER (i.e. not
+        # 'flucoma_template' which is the hill-climb default) and not tried.
+        candidates = [
+            (score, family)
+            for family, score in seed_scores.items()
+            if family in ARCHITECTURE_ORDER and family not in tried
+        ]
+        if candidates:
+            candidates.sort()  # ascending score = best first
+            return candidates[0][1]
+
     for arch in ARCHITECTURE_ORDER:
         if arch not in tried:
             return arch
@@ -484,7 +595,8 @@ def _next_untried_architecture(progress):
 
 
 def format_report(convergence, mismatches, top_deltas, prev_code=None,
-                  progress=None, best_code=None, seeded_templates=None):
+                  progress=None, best_code=None, seeded_templates=None,
+                  max_iterations=0, convergence_threshold=0.0):
     lines = []
 
     composite = convergence.get('composite_score', convergence.get('spectral_convergence', 0))
@@ -497,48 +609,126 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     lines.append(f"rmse: {convergence.get('rmse', 0):.6f}")
     lines.append("")
 
+    iteration = progress.get('iteration', 0) if progress else 0
+    if progress:
+        max_iterations = progress.get('max_iterations', max_iterations)
+        convergence_threshold = progress.get('convergence_threshold', convergence_threshold)
+
+    should_finish = progress.get('should_finish', False) if progress else (
+        (max_iterations > 0 and iteration >= max_iterations)
+        or (convergence_threshold > 0 and composite < convergence_threshold)
+    )
+
+    if progress and should_finish:
+        best_attempt = progress.get('best_attempt')
+        lines.append("=== MANDATORY FINISH ===")
+        if max_iterations > 0 and iteration >= max_iterations:
+            lines.append(
+                f"Iteration budget exhausted: N={iteration}, max_iterations={max_iterations}."
+            )
+            lines.append(f"Do NOT write attempt_{iteration + 1}.scd or any further attempts.")
+        elif convergence_threshold > 0 and composite < convergence_threshold:
+            lines.append(
+                f"Convergence reached: composite_score={composite:.4f} < "
+                f"threshold={convergence_threshold:.4f}."
+            )
+        lines.append("Go to the Finish section in AGENTS.md NOW:")
+        lines.append(f"  1. cp current_run/attempt_{best_attempt}.scd current_run/final_result.scd")
+        lines.append("  2. write current_run/report.md")
+        lines.append("")
+
     if progress:
         scores = progress.get('scores', [])
         best_attempt = progress.get('best_attempt')
         best_score = progress.get('best_score')
+        effective_seed_count = progress.get('seed_count', 0)
+        iteration = progress.get('iteration', len(scores))
+        in_seeding_phase = (effective_seed_count > 0 and iteration <= effective_seed_count)
+        is_final_seed = (effective_seed_count > 0 and iteration == effective_seed_count)
+        arch_map = progress.get('attempt_architectures', {})
+        seed_scores = progress.get('seed_scores', {})
+
         lines.append("=== SCORE HISTORY (lower is better) ===")
         history = []
         for i, s in enumerate(scores, 1):
+            fam = arch_map.get(str(i), '')
+            fam_str = f' [{fam}]' if fam else ''
             mark = ' <-- BEST' if i == best_attempt else ''
-            history.append(f"  attempt {i}: {s:.4f}{mark}")
+            seed_mark = ' [SEED]' if i <= effective_seed_count else ''
+            history.append(f"  attempt {i}: {s:.4f}{fam_str}{seed_mark}{mark}")
         lines.extend(history)
         lines.append("")
 
-        lines.append("=== NEXT-ATTEMPT INSTRUCTION (HILL-CLIMB) ===")
-        if progress.get('plateau_detected'):
+        if in_seeding_phase:
+            lines.append("=== SEEDING PHASE STATUS ===")
             lines.append(
-                f"No new best for {progress.get('iters_since_best', 0)} iterations. "
-                "A MANDATORY ARCHITECTURE SWITCH is required (see section below)."
+                f"Seed {iteration}/{effective_seed_count} evaluated "
+                f"(family: {arch_map.get(str(iteration), 'unknown')}, "
+                f"score: {composite:.4f})."
             )
-        elif progress.get('is_new_best'):
-            lines.append(
-                f"IMPROVED: this is the new best (attempt {best_attempt}, "
-                f"{best_score:.4f}). Continue from the BASE CODE below and make ONE "
-                "more targeted change in the same direction."
-            )
-        elif progress.get('regressed'):
-            lines.append(
-                f"REGRESSION: this attempt scored {composite:.4f}, which is "
-                f"+{progress.get('delta_vs_best', 0):.4f} WORSE than the best "
-                f"(attempt {best_attempt}, {best_score:.4f})."
-            )
-            lines.append(
-                f"DISCARD this attempt's direction. Start your next attempt FROM "
-                f"the BASE CODE below (attempt {best_attempt}) and make ONE different "
-                "targeted change. Do NOT repeat the change that caused this regression."
-            )
-        else:
-            lines.append(
-                f"NO IMPROVEMENT: this attempt did not beat the best "
-                f"(attempt {best_attempt}, {best_score:.4f}). Start your next attempt "
-                "FROM the BASE CODE below and try a DIFFERENT targeted change."
-            )
-        lines.append("")
+            if is_final_seed:
+                # Announce the winner.
+                winner_fam = arch_map.get(str(best_attempt), 'unknown')
+                lines.append("")
+                lines.append(
+                    f"ALL SEEDS EVALUATED. WINNER: attempt {best_attempt} "
+                    f"(family: {winner_fam}, score: {best_score:.4f})."
+                )
+                lines.append(
+                    "NEXT STEP (Phase B): Re-run optimize_params.py on "
+                    f"attempt_{best_attempt}.scd with the FULL optimizer_budget "
+                    f"(from config.txt), then continue the hill-climb from that "
+                    "attempt as your BASE CODE."
+                )
+                if seed_scores:
+                    ranked = sorted(seed_scores.items(), key=lambda x: x[1])
+                    lines.append("Seed ranking (best to worst):")
+                    for rank, (fam, sc) in enumerate(ranked, 1):
+                        lines.append(f"  {rank}. {fam}: {sc:.4f}")
+            else:
+                next_seed_idx = iteration + 1
+                next_fam = (SEED_FAMILIES[next_seed_idx - 1]
+                            if next_seed_idx <= len(SEED_FAMILIES)
+                            else 'any untried family')
+                lines.append(
+                    f"Write seed {next_seed_idx}/{effective_seed_count} using "
+                    f"architecture family: {next_fam}. "
+                    "Do NOT copy or mutate any previous seed. "
+                    "Use the DOMINANT PARTIALS from target_partials.txt to seed "
+                    "frequencies. Add 3-8 // @param annotations."
+                )
+            lines.append("")
+        elif not should_finish:
+            lines.append("=== NEXT-ATTEMPT INSTRUCTION (HILL-CLIMB) ===")
+            if progress.get('plateau_detected'):
+                lines.append(
+                    f"No new best for {progress.get('iters_since_best', 0)} iterations. "
+                    "A MANDATORY ARCHITECTURE SWITCH is required (see section below)."
+                )
+            elif progress.get('is_new_best'):
+                lines.append(
+                    f"IMPROVED: this is the new best (attempt {best_attempt}, "
+                    f"{best_score:.4f}). Continue from the BASE CODE below and make ONE "
+                    "more targeted change in the same direction."
+                )
+            elif progress.get('regressed'):
+                lines.append(
+                    f"REGRESSION: this attempt scored {composite:.4f}, which is "
+                    f"+{progress.get('delta_vs_best', 0):.4f} WORSE than the best "
+                    f"(attempt {best_attempt}, {best_score:.4f})."
+                )
+                lines.append(
+                    f"DISCARD this attempt's direction. Start your next attempt FROM "
+                    f"the BASE CODE below (attempt {best_attempt}) and make ONE different "
+                    "targeted change. Do NOT repeat the change that caused this regression."
+                )
+            else:
+                lines.append(
+                    f"NO IMPROVEMENT: this attempt did not beat the best "
+                    f"(attempt {best_attempt}, {best_score:.4f}). Start your next attempt "
+                    "FROM the BASE CODE below and try a DIFFERENT targeted change."
+                )
+            lines.append("")
 
     lines.append("=== CATEGORY MISMATCHES (ranked by severity) ===")
     if mismatches:
@@ -563,25 +753,32 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     lines.append(correction)
     lines.append("")
 
-    if progress and progress.get('plateau_detected'):
+    if progress and progress.get('plateau_detected') and not should_finish:
         best_attempt = progress.get('best_attempt')
         best_score = progress.get('best_score')
         arch_name = progress.get('switch_architecture') or ARCHITECTURE_ORDER[0]
         templates = seeded_templates or ARCHITECTURE_TEMPLATES
-        arch_code = templates.get(arch_name, ARCHITECTURE_TEMPLATES[arch_name])
+        arch_code = templates.get(arch_name, ARCHITECTURE_TEMPLATES.get(arch_name, ''))
         tried = progress.get('architectures_tried', [])
+        seed_scores = progress.get('seed_scores', {})
         lines.append("=== PLATEAU DETECTED — MANDATORY ARCHITECTURE SWITCH ===")
         lines.append(
             f"No new best for {progress.get('iters_since_best', 0)} iterations "
             f"(best is attempt {best_attempt} at {best_score:.4f})."
         )
         lines.append(f"Architectures tried so far: {', '.join(tried) if tried else 'none'}.")
+        if seed_scores and arch_name in seed_scores:
+            lines.append(
+                f"Switching to '{arch_name}' (measured seed score: "
+                f"{seed_scores[arch_name]:.4f} — best unexplored seed)."
+            )
         lines.append("You MUST switch to a fundamentally different synthesis architecture.")
         lines.append("Do NOT make incremental tweaks. Rewrite from scratch using this template")
         lines.append("(its frequencies are seeded from the target's dominant partials):")
         lines.append("")
         lines.append(f"Architecture: {arch_name}")
-        lines.append(arch_code)
+        if arch_code:
+            lines.append(arch_code)
         lines.append("")
         lines.append(
             "If this architecture cannot beat the best score within 2 iterations, "
@@ -589,29 +786,98 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
         )
         lines.append("")
 
-    # Elitism: always surface the BEST attempt's code as the base to mutate.
+    # Elitism: surface best code for next attempt, or for final_result copy on finish.
     base_code = best_code if best_code is not None else prev_code
-    if base_code is not None:
+    show_base_code = base_code is not None
+    if progress:
+        effective_seed_count = progress.get('seed_count', 0)
+        in_seeding_phase = (effective_seed_count > 0 and iteration <= effective_seed_count)
+        if in_seeding_phase and not should_finish:
+            show_base_code = False
+
+    if show_base_code:
         best_attempt = progress.get('best_attempt') if progress else None
-        label = (f"=== BASE CODE FOR NEXT ATTEMPT (best so far: attempt {best_attempt}) ==="
-                 if best_attempt is not None else "=== CURRENT ATTEMPT CODE ===")
+        if should_finish:
+            label = (f"=== BEST ATTEMPT CODE (copy to final_result.scd: attempt {best_attempt}) ==="
+                     if best_attempt is not None else "=== CURRENT ATTEMPT CODE ===")
+        else:
+            label = (f"=== BASE CODE FOR NEXT ATTEMPT (best so far: attempt {best_attempt}) ==="
+                     if best_attempt is not None else "=== CURRENT ATTEMPT CODE ===")
         lines.append(label)
         lines.append(base_code)
 
     return "\n".join(lines)
 
 
+def dump_seed_templates(partials_path, output_path):
+    """Write seed templates for all architecture families to a text file.
+
+    Each family gets a clearly delimited block that the agent can copy verbatim
+    as the starting point for seeds 2–4.  Frequencies are seeded from the
+    target's dominant partials when available.
+    """
+    partials = parse_partials(partials_path) if partials_path else []
+    templates = build_seeded_templates(partials)
+
+    lines = [
+        "# Seed Templates — copy the relevant block as your starting point.",
+        "# Frequencies are seeded from the target's dominant partials.",
+        "# After copying: add 3-8 // @param annotations, optionally add ONE",
+        "# noise or modulation layer.  Do NOT invent new UGen call signatures.",
+        "",
+    ]
+    for family in SEED_FAMILIES[1:]:  # skip flucoma_template (agent uses target_partials.txt directly)
+        code = templates.get(family, ARCHITECTURE_TEMPLATES.get(family, ''))
+        lines.append(f"=== {family} ===")
+        lines.append(code)
+        lines.append("")
+
+    Path(output_path).write_text('\n'.join(lines), encoding='utf-8')
+    print(f"Seed templates written to {output_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description='Compare attempt audio with target')
-    parser.add_argument('target', help='Path to target audio file')
-    parser.add_argument('attempt', help='Path to attempt audio file')
+    parser.add_argument('target', nargs='?', help='Path to target audio file')
+    parser.add_argument('attempt', nargs='?', help='Path to attempt audio file')
     parser.add_argument('-o', '--output', help='Output comparison report path')
     parser.add_argument('--prev-code', help='Path to current attempt .scd file (included in report)')
     parser.add_argument('--progress-dir', help='Directory for progress.json tracking')
     parser.add_argument('--iteration', type=int, default=0, help='Current iteration number')
     parser.add_argument('--partials', help='Path to target_partials.txt (seeds architecture templates)')
     parser.add_argument('--sample-rate', type=int, default=44100)
+    parser.add_argument('--seed-count', type=int, default=0,
+                        help='Total number of seeding-phase attempts (0 = legacy single-start)')
+    parser.add_argument('--arch', default=None,
+                        help='Architecture family used for this attempt (recorded in progress.json)')
+    parser.add_argument('--max-iter', type=int, default=0,
+                        help='Maximum iterations (0 = read from progress_dir/config.txt)')
+    parser.add_argument('--convergence-threshold', type=float, default=0.0,
+                        help='Convergence threshold (0 = read from progress_dir/config.txt)')
+    parser.add_argument('--dump-templates', metavar='OUTPUT_PATH', default=None,
+                        help='Write seed templates for all families to OUTPUT_PATH and exit. '
+                             'Use with --partials to seed frequencies from the target.')
     args = parser.parse_args()
+
+    if args.dump_templates:
+        partials_path = args.partials
+        if not partials_path and args.progress_dir:
+            candidate = os.path.join(args.progress_dir, 'target_partials.txt')
+            if os.path.exists(candidate):
+                partials_path = candidate
+        dump_seed_templates(partials_path, args.dump_templates)
+        sys.exit(0)
+
+    run_config = read_run_config(args.progress_dir)
+    max_iterations = args.max_iter or run_config['max_iterations']
+    convergence_threshold = (
+        args.convergence_threshold or run_config['convergence_threshold']
+    )
+    if args.seed_count == 0 and run_config['seed_count'] > 0:
+        args.seed_count = run_config['seed_count']
+
+    if not args.target or not args.attempt:
+        parser.error("target and attempt are required unless --dump-templates is used")
 
     for path in [args.target, args.attempt]:
         if not os.path.exists(path):
@@ -638,21 +904,35 @@ def main():
     best_code = None
     if args.progress_dir and args.iteration > 0:
         composite = convergence.get('composite_score', 0)
-        progress = update_progress(args.progress_dir, args.iteration, composite,
-                                   seeded_templates=seeded_templates)
-        # Elitism: surface the best attempt's code so the agent mutates that,
-        # not whatever it most recently wrote.
-        best_attempt = progress.get('best_attempt')
-        if best_attempt is not None:
-            best_path = os.path.join(args.progress_dir, f'attempt_{best_attempt}.scd')
-            if os.path.exists(best_path):
-                best_code = Path(best_path).read_text(encoding='utf-8').strip()
-    if best_code is None:
+        progress = update_progress(
+            args.progress_dir, args.iteration, composite,
+            seeded_templates=seeded_templates,
+            seed_count=args.seed_count,
+            arch=args.arch,
+            max_iterations=max_iterations,
+            convergence_threshold=convergence_threshold,
+        )
+        # During seeding, do NOT surface base code — each seed is independent.
+        # After seeding (or without seeding), surface the best attempt's code.
+        effective_seed_count = progress.get('seed_count', 0)
+        in_seeding_phase = (effective_seed_count > 0
+                            and args.iteration <= effective_seed_count)
+        should_finish = progress.get('should_finish', False)
+        if not in_seeding_phase or should_finish:
+            best_attempt = progress.get('best_attempt')
+            if best_attempt is not None:
+                best_path = os.path.join(args.progress_dir,
+                                         f'attempt_{best_attempt}.scd')
+                if os.path.exists(best_path):
+                    best_code = Path(best_path).read_text(encoding='utf-8').strip()
+    if best_code is None and not (progress and progress.get('should_finish')):
         best_code = prev_code
 
     report = format_report(convergence, mismatches, top_deltas,
                            prev_code=prev_code, progress=progress,
-                           best_code=best_code, seeded_templates=seeded_templates)
+                           best_code=best_code, seeded_templates=seeded_templates,
+                           max_iterations=max_iterations,
+                           convergence_threshold=convergence_threshold)
 
     if args.output:
         with open(args.output, 'w') as f:

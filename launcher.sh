@@ -20,6 +20,7 @@ TARGET=""
 TELEGRAM_NOTIFY=true
 MODEL_ID="ollama/qwen3-coder-next:latest"
 OPTIMIZER_BUDGET=30
+SEED_COUNT=4
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -44,6 +45,10 @@ while [[ $# -gt 0 ]]; do
             OPTIMIZER_BUDGET="$2"
             shift 2
             ;;
+        --seed-count)
+            SEED_COUNT="$2"
+            shift 2
+            ;;
         --no-telegram)
             TELEGRAM_NOTIFY=false
             shift
@@ -57,6 +62,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --threshold    Spectral convergence threshold (default: 0.4)"
             echo "  --model        Model id to use (default: ollama/qwen3-coder-next:latest)"
             echo "  --optimizer-budget  Renders per parameter-optimization step (default: 30)"
+            echo "  --seed-count   Number of diverse architecture seeds before hill-climb (default: 4, set 0 to disable)"
             echo "  --no-telegram  Disable Telegram progress notifications"
             exit 0
             ;;
@@ -76,6 +82,8 @@ RUN_STATUS="failed"
 FAILURE_REASON="not started"
 AGENT_EXIT_CODE=""
 MONITOR_PID=""
+AGENT_PID=""
+ITERATION_LIMIT_STOP=false
 
 finalize_run() {
     set +e
@@ -110,6 +118,17 @@ if [ ! -f "$TARGET" ]; then
     exit 1
 fi
 
+# Auto-adjust seed_count so at least one slot remains for Phase B
+if [ "$SEED_COUNT" -ge "$MAX_ITER" ]; then
+    ADJUSTED=$(( MAX_ITER > 1 ? MAX_ITER - 1 : 1 ))
+    echo "Warning: seed_count $SEED_COUNT exceeds budget; reducing to $ADJUSTED (max_iter=$MAX_ITER must leave ≥1 slot for Phase B)"
+    SEED_COUNT=$ADJUSTED
+fi
+HILL_CLIMB_SLOTS=$(( MAX_ITER - SEED_COUNT - 1 ))
+if [ "$HILL_CLIMB_SLOTS" -lt 0 ]; then
+    HILL_CLIMB_SLOTS=0
+fi
+
 case "$MODEL_ID" in
     qwen3-coder-next|qwen-coder|ollama/qwen3-coder-next*)
         MODEL_ID="ollama/qwen3-coder-next:latest"
@@ -131,6 +150,9 @@ TARGET_BASENAME=$(basename "$TARGET" .wav)
 RUN_DIR="${SCRIPT_DIR}/runs/${TIMESTAMP}_${TARGET_BASENAME}"
 mkdir -p "$RUN_DIR"
 
+# Seed optimizer budget: optimizer_budget / 3, minimum 8
+SEED_OPT_BUDGET=$(( OPTIMIZER_BUDGET / 3 > 8 ? OPTIMIZER_BUDGET / 3 : 8 ))
+
 echo "============================================"
 echo "  sc_claw_flucoma — Sound Matching via OpenClaw + FluCoMa"
 echo "============================================"
@@ -139,6 +161,9 @@ echo "Model:        $MODEL_ID"
 echo "Max iter:     $MAX_ITER"
 echo "Threshold:    $THRESHOLD"
 echo "Opt budget:   $OPTIMIZER_BUDGET"
+echo "Seed count:   $SEED_COUNT"
+echo "Seed budget:  $SEED_OPT_BUDGET"
+echo "Budget:       $SEED_COUNT seeds + 1 Phase B + $HILL_CLIMB_SLOTS hill-climb = $MAX_ITER total"
 echo "Run dir:      $RUN_DIR"
 echo "============================================"
 
@@ -156,6 +181,12 @@ echo "Analyzing target partials (FluCoMa CLI)..."
 /home/ayk/miniconda3/bin/python3 "${SCRIPT_DIR}/analyze_partials.py" "$RUN_DIR/target.wav" -o "$RUN_DIR/target_partials.txt"
 echo "FluCoMa partials analysis saved."
 
+# Pre-generate seed templates so the agent can copy them without guessing UGen APIs
+echo "Generating seed templates..."
+/home/ayk/miniconda3/bin/python3 "${SCRIPT_DIR}/compare.py" \
+    --dump-templates "$RUN_DIR/seed_templates.txt" \
+    --partials "$RUN_DIR/target_partials.txt"
+
 # Measure target duration (seconds, rounded up to 1 decimal, minimum 2.0s)
 TARGET_DURATION=$(/home/ayk/miniconda3/bin/python3 - "$RUN_DIR/target.wav" <<'PYEOF'
 import sys, soundfile as sf, math
@@ -172,6 +203,8 @@ max_iterations: $MAX_ITER
 convergence_threshold: $THRESHOLD
 target_duration: $TARGET_DURATION
 optimizer_budget: $OPTIMIZER_BUDGET
+seed_count: $SEED_COUNT
+seed_optimizer_budget: $SEED_OPT_BUDGET
 EOF
 echo "Run config written."
 
@@ -214,50 +247,139 @@ if ! openclaw models set "$MODEL_ID"; then
     exit 1
 fi
 
-# Start a background monitor to show progress and send Telegram updates
-(
-    set +eo pipefail
-    sleep 5
-    LAST_REPORTED=0
-    LAST_ATTEMPT_REPORTED=0
-    while kill -0 $$ 2>/dev/null; do
-        ATTEMPT_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'attempt_*.scd' 2>/dev/null | wc -l)
-        COMPARISON_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+# Start agent in background, then monitor progress and hard-stop at max_iter.
+# On abnormal exit, retry up to 2 times with the same session-id so the agent
+# can resume from where it stopped.
 
-        if [ "$COMPARISON_COUNT" -gt "$LAST_REPORTED" ]; then
-            LATEST_COMP=$(ls "$RUN_DIR"/comparison_*.txt 2>/dev/null | sort -V | tail -1)
-            LATEST_SCORE=$(grep -m1 '^composite_score:\|^spectral_convergence:' "$LATEST_COMP" 2>/dev/null | awk '{print $2}')
-            echo "[$(date +%H:%M:%S)] Iteration $COMPARISON_COUNT complete | score=${LATEST_SCORE:-N/A} | threshold=$THRESHOLD | progress=$COMPARISON_COUNT/$MAX_ITER"
-            tg_send "[$TARGET_BASENAME] Iter $COMPARISON_COUNT/$MAX_ITER — composite_score: ${LATEST_SCORE:-N/A} (threshold: $THRESHOLD)"
-            LAST_REPORTED=$COMPARISON_COUNT
-        elif [ "$ATTEMPT_COUNT" -gt "$LAST_ATTEMPT_REPORTED" ]; then
-            echo "[$(date +%H:%M:%S)] Iteration $ATTEMPT_COUNT started..."
-            LAST_ATTEMPT_REPORTED=$ATTEMPT_COUNT
-        fi
+RETRY_MAX=2
+RETRY_COUNT=0
+RUN_START_EPOCH=$(date +%s)
+AGENT_EXIT_CODE=0
+ITERATION_LIMIT_STOP=false
 
-        sleep 10
-    done
-) &
-MONITOR_PID=$!
+KICKOFF_MSG="Match the target sound. Your run directory is current_run/. Read current_run/config.txt (note seed_count=${SEED_COUNT} and seed_optimizer_budget=${SEED_OPT_BUDGET}), current_run/target_eval.txt, and current_run/target_partials.txt (FluCoMa analysis with ready-to-use SC templates). Follow AGENTS.md exactly. You have exactly ${MAX_ITER} scored iterations total (${SEED_COUNT} seeds + Phase B + hill-climb). Phase A: produce ${SEED_COUNT} diverse architecture seeds (attempts 1..${SEED_COUNT}), one per family listed in the seeding table, each with a cheap optimizer pass (budget=${SEED_OPT_BUDGET}). Phase B: copy the best seed, run the full optimizer (budget=${OPTIMIZER_BUDGET}), then continue the hill-climb if budget remains. When comparison_N.txt contains MANDATORY FINISH, stop immediately and do the Finish step. Write all files to current_run/. IMPORTANT: When you reach max iterations or convergence, you MUST do the Finish step (copy best attempt to final_result.scd and write report.md)."
+RESUME_MSG="Continue the run per AGENTS.md. Read the latest comparison_N.txt in current_run/ and proceed from there."
+
+start_monitor() {
+    (
+        set +eo pipefail
+        sleep 5
+        LAST_REPORTED=0
+        LAST_ATTEMPT_REPORTED=0
+        while kill -0 "$AGENT_PID" 2>/dev/null; do
+            ATTEMPT_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'attempt_*.scd' 2>/dev/null | wc -l)
+            COMPARISON_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+
+            if [ "$COMPARISON_COUNT" -ge "$MAX_ITER" ]; then
+                echo "[$(date +%H:%M:%S)] Iteration limit reached ($COMPARISON_COUNT/$MAX_ITER) — stopping agent"
+                touch "$RUN_DIR/ITERATION_LIMIT_REACHED"
+                kill "$AGENT_PID" 2>/dev/null || true
+                break
+            fi
+
+            if [ "$COMPARISON_COUNT" -gt "$LAST_REPORTED" ]; then
+                LATEST_COMP=$(ls "$RUN_DIR"/comparison_*.txt 2>/dev/null | sort -V | tail -1)
+                LATEST_SCORE=$(grep -m1 '^composite_score:\|^spectral_convergence:' "$LATEST_COMP" 2>/dev/null | awk '{print $2}')
+                echo "[$(date +%H:%M:%S)] Iteration $COMPARISON_COUNT complete | score=${LATEST_SCORE:-N/A} | threshold=$THRESHOLD | progress=$COMPARISON_COUNT/$MAX_ITER"
+                tg_send "[$TARGET_BASENAME] Iter $COMPARISON_COUNT/$MAX_ITER — composite_score: ${LATEST_SCORE:-N/A} (threshold: $THRESHOLD)"
+                LAST_REPORTED=$COMPARISON_COUNT
+            elif [ "$ATTEMPT_COUNT" -gt "$LAST_ATTEMPT_REPORTED" ]; then
+                echo "[$(date +%H:%M:%S)] Iteration $ATTEMPT_COUNT started..."
+                LAST_ATTEMPT_REPORTED=$ATTEMPT_COUNT
+            fi
+
+            sleep 10
+        done
+    ) &
+    MONITOR_PID=$!
+}
 
 set +e
-openclaw agent \
-    --agent "$AGENT_ID" \
-    --session-id "$SESSION_ID" \
-    --message "Match the target sound. Your run directory is current_run/. Read current_run/config.txt, current_run/target_eval.txt, and current_run/target_partials.txt (FluCoMa analysis with ready-to-use SC templates). Follow AGENTS.md exactly. Use Template D or E from target_partials.txt as your starting point. Write all files to current_run/. IMPORTANT: When you reach max iterations or convergence, you MUST do the Finish step (copy best attempt to final_result.scd and write report.md)." \
-    --timeout $TIMEOUT_SEC
-AGENT_EXIT_CODE=$?
+
+while true; do
+    if [ "$RETRY_COUNT" -eq 0 ]; then
+        AGENT_MSG="$KICKOFF_MSG"
+    else
+        AGENT_MSG="$RESUME_MSG"
+    fi
+
+    # Compute remaining time budget
+    NOW_EPOCH=$(date +%s)
+    ELAPSED_SEC=$(( NOW_EPOCH - RUN_START_EPOCH ))
+    REMAINING_SEC=$(( TIMEOUT_SEC - ELAPSED_SEC ))
+    if [ "$REMAINING_SEC" -le 30 ]; then
+        echo "No remaining time budget for retry — giving up."
+        break
+    fi
+
+    echo "[$(date +%H:%M:%S)] Starting agent (attempt $((RETRY_COUNT + 1))/$((RETRY_MAX + 1)), timeout=${REMAINING_SEC}s)..."
+
+    openclaw agent \
+        --agent "$AGENT_ID" \
+        --model "$MODEL_ID" \
+        --session-id "$SESSION_ID" \
+        --message "$AGENT_MSG" \
+        --timeout "$REMAINING_SEC" &
+    AGENT_PID=$!
+    export AGENT_PID
+
+    start_monitor
+
+    wait $AGENT_PID
+    AGENT_EXIT_CODE=$?
+
+    if [ -f "$RUN_DIR/ITERATION_LIMIT_REACHED" ]; then
+        ITERATION_LIMIT_STOP=true
+    fi
+
+    COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+
+    # Clean exits, iteration-limit stop, or convergence: stop retrying.
+    if [ "$AGENT_EXIT_CODE" -eq 0 ]; then
+        break
+    fi
+    if [ "$ITERATION_LIMIT_STOP" = true ]; then
+        break
+    fi
+    if [ -f "$RUN_DIR/final_result.scd" ]; then
+        break
+    fi
+
+    # If all iterations are used up, no point retrying.
+    if [ "$COMPLETED_COMPS" -ge "$MAX_ITER" ]; then
+        break
+    fi
+
+    RETRY_COUNT=$(( RETRY_COUNT + 1 ))
+    if [ "$RETRY_COUNT" -gt "$RETRY_MAX" ]; then
+        echo "[$(date +%H:%M:%S)] Maximum retries ($RETRY_MAX) exhausted — giving up."
+        break
+    fi
+
+    echo "[$(date +%H:%M:%S)] Agent exited with code $AGENT_EXIT_CODE ($COMPLETED_COMPS/$MAX_ITER iterations done) — retrying (attempt $((RETRY_COUNT + 1))/$((RETRY_MAX + 1)))..."
+    sleep 3
+done
+
 set -e
 
 if [ "$AGENT_EXIT_CODE" -ne 0 ]; then
-    if [ "$AGENT_EXIT_CODE" -eq 124 ]; then
+    if [ "$ITERATION_LIMIT_STOP" = true ]; then
+        COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+        if [ "$COMPLETED_COMPS" -ge "$MAX_ITER" ]; then
+            RUN_STATUS="success"
+            FAILURE_REASON="iteration limit reached (agent stopped)"
+            echo "Agent stopped at iteration limit ($MAX_ITER comparisons completed)."
+        fi
+    elif [ "$AGENT_EXIT_CODE" -eq 124 ]; then
         FAILURE_REASON="launcher timeout (openclaw agent --timeout $TIMEOUT_SEC)"
     else
-        FAILURE_REASON="openclaw agent exit code $AGENT_EXIT_CODE"
+        FAILURE_REASON="openclaw agent exit code $AGENT_EXIT_CODE (after $((RETRY_COUNT)) retries)"
     fi
-    echo "ERROR: OpenClaw agent failed."
-    echo "  Exit code: $AGENT_EXIT_CODE"
-    echo "  Reason:    $FAILURE_REASON"
+    if [ "$RUN_STATUS" != "success" ]; then
+        echo "ERROR: OpenClaw agent failed."
+        echo "  Exit code: $AGENT_EXIT_CODE"
+        echo "  Reason:    $FAILURE_REASON"
+    fi
 else
     RUN_STATUS="success"
     FAILURE_REASON="none"

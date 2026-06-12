@@ -62,6 +62,7 @@ def check_var_declarations(code):
 def check_undeclared_variables(code):
     """Check for assignments to variables not declared with `var`."""
     errors = []
+    code = _strip_line_comments(code)
 
     declared = set()
     for match in re.finditer(r'\bvar\s+([^;]+);', code):
@@ -225,21 +226,39 @@ def check_envelope_times(code):
 
 
 def check_class_names(code):
-    """Check that all class names (capitalized identifiers used as UGens) exist."""
+    """Check that all class names (capitalized identifiers used as UGens) exist.
+
+    Only checks names that appear as class *references* — either as method
+    receivers (``Name.method``) or as constructor calls (``Name(``).  Plain
+    capitalized words in comments, symbol names, or array index expressions
+    are ignored.
+    """
     errors = []
     sc_classes = load_sc_classes()
     if not sc_classes:
         return errors
 
-    for match in re.finditer(r'\b([A-Z][a-zA-Z0-9]+)\b', code):
+    _SKIP = {
+        'SynthDef', 'Score', 'ServerOptions', 'PathName', 'Date',
+        'Env', 'Array', 'Signal', 'Buffer', 'Bus', 'Server',
+        'Mix', 'Select', 'Out', 'In', 'Clip',
+        'LinLin', 'LinExp', 'NamedControl',
+    }
+
+    # Strip comments so capitalized words in comments are never checked.
+    stripped = _strip_line_comments(code)
+
+    # Match only class *references*: Name.something  or  Name(
+    ref_pattern = re.compile(r'\b([A-Z][a-zA-Z0-9_]*)\s*(?:\.|\()')
+
+    seen = set()
+    for match in ref_pattern.finditer(stripped):
         name = match.group(1)
-        if name in {'SynthDef', 'Score', 'ServerOptions', 'PathName', 'Date',
-                     'Env', 'Array', 'Signal', 'Buffer', 'Bus', 'Server',
-                     'Mix', 'Select', 'Out', 'In', 'Clip',
-                     'LinLin', 'LinExp', 'NamedControl'}:
+        if name in seen or name in _SKIP:
             continue
+        seen.add(name)
         if name not in sc_classes:
-            line_num = code[:match.start()].count('\n') + 1
+            line_num = stripped[:match.start()].count('\n') + 1
             errors.append(
                 f"Line {line_num}: Unknown class `{name}`. "
                 f"Not found in SuperCollider class index."

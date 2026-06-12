@@ -255,16 +255,20 @@ def _extract_method_calls(code):
             # Find matching closing paren
             args_str = _extract_balanced_parens(check_line, paren_start)
             if args_str is None:
-                # Multi-line call — try to get args from subsequent lines
+                # Multi-line call — accumulate lines until the opening paren
+                # is balanced, then use _extract_balanced_parens so that only
+                # the content *inside* this call's parens is captured.  This
+                # prevents text after the closing paren (e.g. "* ampArray[i]")
+                # from leaking into the argument string and inflating arg counts.
                 remaining = check_line[paren_start:]
                 for next_line in lines[lineno:]:
                     cp = next_line.find('//')
                     remaining += '\n' + (next_line[:cp] if cp >= 0 else next_line)
                     if _count_parens(remaining) == 0:
                         break
-                args_str = remaining[1:]  # strip leading '('
-                if args_str.endswith(')'):
-                    args_str = args_str[:-1]
+                args_str = _extract_balanced_parens(remaining, 0)
+                if args_str is None:
+                    continue  # genuinely unbalanced — let Layer 2 catch it
 
             # Parse the args string to find named args and count positional args
             named_args, positional_count = _parse_args(args_str)
@@ -346,7 +350,13 @@ def _parse_args(args_str):
 
 
 def _split_args(args_str):
-    """Split argument string by commas at depth 0."""
+    """Split argument string by commas at depth 0.
+
+    Depth is clamped to >= 0 on closing characters so that a stray ')' or ']'
+    (which should never appear in a correctly extracted arg string, but can
+    occur after imperfect multi-line extraction) does not re-enable top-level
+    comma splitting and inflate positional arg counts.
+    """
     parts = []
     current = []
     depth = 0
@@ -357,13 +367,13 @@ def _split_args(args_str):
             depth += 1
             current.append(ch)
         elif ch == ')' or ch == ']':
-            depth -= 1
+            depth = max(depth - 1, 0)
             current.append(ch)
         elif ch == '{':
             bracket_depth += 1
             current.append(ch)
         elif ch == '}':
-            bracket_depth -= 1
+            bracket_depth = max(bracket_depth - 1, 0)
             current.append(ch)
         elif ch == ',' and depth == 0 and bracket_depth == 0:
             parts.append(''.join(current))

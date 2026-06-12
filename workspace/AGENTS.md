@@ -4,7 +4,7 @@ Your run directory is `current_run/` (inside your workspace). Follow this protoc
 
 ## Setup
 
-1. Read `current_run/config.txt` to get `max_iterations`, `convergence_threshold`, `target_duration`, and `optimizer_budget`.
+1. Read `current_run/config.txt` to get `max_iterations`, `convergence_threshold`, `target_duration`, `optimizer_budget`, `seed_count`, and `seed_optimizer_budget`.
 2. Read `current_run/target_eval.txt` — it has three sections:
    - **AUDIO METRICS**: raw numeric values
    - **CATEGORIES**: brightness, attack_time, harmonic_to_noise_ratio, etc.
@@ -34,17 +34,134 @@ Before writing your first attempt, search `reference_examples/` for real SC docu
 4. Read 2–3 of the most relevant `.ref` files from `reference_examples/`. Each `.ref` file contains the audio description, categories, synthesis concepts, and the actual SuperCollider code that produced that sound.
 5. Use the code patterns from these examples to adapt the FluCoMa template — e.g., replace the envelope shape, add effects, or adjust noise character.
 
-This step is optional for N>1 (use comparison feedback instead), but always do it for N=1.
+This step is mandatory for seed 1. It is optional for later seeds (use the architecture family description instead).
 
-## Loop (starting at N=1)
+---
+
+## Seeding failure cap
+
+During Phase A, if Steps 1b/2/3 fail **3 consecutive times for the same seed** (you cannot produce a seed that passes validation and renders to audio), abandon that seed family:
+
+- Record it as skipped in `report.md` with a one-line reason (e.g. "Seed 2 skipped: 3 consecutive validation failures").
+- Treat the skip slot as if the seed scored 0 (worst).
+- Move on to the next seed family immediately.
+- A seeding phase MUST NOT consume more than 3 fix attempts per family.
+
+---
+
+## Phase A: Seeding (N = 1 .. seed_count)
+
+**Goal:** Explore `seed_count` distinct architecture basins cheaply and pick the best one before committing to full refinement. Seeds count toward `max_iterations`.
+
+**Iteration budget:** With `seed_count=K`, iterations 1..K are seeds, iteration K+1 is Phase B, iterations K+2..max_iterations are hill-climb. There is no iteration K+2 if `max_iterations = K+1` — Phase B is then the final iteration.
+
+### Seed families (in order)
+
+| Seed N | Family name | Starting point |
+|--------|-------------|----------------|
+| 1 | `flucoma_template` | Template D or E from `target_partials.txt` (consult reference examples first) |
+| 2 | `struck_resonator` | Copy the `struck_resonator` block from `current_run/seed_templates.txt` |
+| 3 | `fm_synthesis` | Copy the `fm_synthesis` block from `current_run/seed_templates.txt` |
+| 4 | `resonator_bank` | Copy the `resonator_bank` block from `current_run/seed_templates.txt` |
+
+`current_run/seed_templates.txt` contains validated SuperCollider code for each family, with frequencies pre-seeded from the target's dominant partials. **You MUST read it and copy the relevant block** before writing seeds 2–4. Do NOT invent UGen call signatures.
+
+**RULES for all seeds:**
+
+- Seeds MUST be structurally different from each other. Do NOT copy or mutate a previous seed.
+- Use frequencies from the DOMINANT PARTIALS section of `target_partials.txt` to seed each architecture.
+- Each seed must carry 3–8 `// @param` annotations.
+- Follow all code-writing rules listed in the Loop section below (var declarations, envelope rules, etc.).
+
+### Steps for each seed N (1 ≤ N ≤ seed_count)
+
+**Step 1: Write SuperCollider Code**
+
+Write synthesis code to `current_run/attempt_N.scd` using the architecture for seed N (see table above).
+
+**Step 1b: Pre-Validate**
+
+```
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/pre_validate.py current_run/attempt_N.scd
+```
+
+**If it fails:** fix and re-run. Do NOT proceed to Step 2.
+
+**Step 2: Wrap and Validate**
+
+```
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/wrap_for_recording.py current_run/attempt_N.scd -d <target_duration>
+```
+
+**Step 3: Synthesize Audio**
+
+```
+exec QT_QPA_PLATFORM=offscreen timeout 30 sclang current_run/attempt_N_nrt.scd
+```
+
+Verify: `exec ls -la current_run/attempt_N.wav`
+
+**Step 3b: Optimize Parameters (cheap — use `seed_optimizer_budget`)**
+
+```
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <seed_optimizer_budget>
+```
+
+**Step 4: Evaluate**
+
+```
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/evaluate.py current_run/attempt_N.wav -o current_run/attempt_N_eval.txt
+```
+
+**Step 5: Compare**
+
+```
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations> --arch <family_name>
+```
+
+Replace `N`, `<seed_count>`, and `<family_name>` with the actual values (e.g. `--seed-count 4 --arch struck_resonator`).
+
+**Step 6: Check if more seeds needed**
+
+Read `current_run/comparison_N.txt` — the SEEDING PHASE STATUS section tells you which seed to write next. If N < seed_count, go back to Step 1 for seed N+1. If N == seed_count, proceed to **Phase B**.
+
+---
+
+## Phase B: Develop the Winner (N = seed_count+1 onward)
+
+**Step B1: Identify the winner**
+
+Read `current_run/comparison_<seed_count>.txt`. The SEEDING PHASE STATUS section names the winning attempt (lowest score) and its architecture family.
+
+**Step B2: Full-budget optimization of the winner**
+
+Copy the winning seed as your Phase B base:
+```
+exec cp current_run/attempt_<best_attempt>.scd current_run/attempt_<seed_count+1>.scd
+```
+
+Run the full-budget optimizer on it:
+```
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/optimize_params.py current_run/attempt_<seed_count+1>.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget>
+```
+
+Then evaluate and compare (Steps 4–5) using iteration N = seed_count+1. Pass `--seed-count <seed_count> --max-iter <max_iterations>` but NOT `--arch` (this is now a hill-climb iteration). The comparison report will switch to HILL-CLIMB mode.
+
+**When `max_iterations == seed_count + 1`:** Phase B is your **final** iteration. After comparing attempt_{K+1}, if `comparison_N.txt` contains `=== MANDATORY FINISH ===`, go directly to **Finish** — do not start a hill-climb.
+
+**Step B3: Continue the hill-climb**
+
+From N = seed_count+2 onward, follow the standard Loop below. The BASE CODE FOR NEXT ATTEMPT section in each comparison report always points to the best attempt so far.
+
+---
+
+## Loop (N > seed_count — standard hill-climb)
 
 ### Step 1: Write SuperCollider Code
 
 Write synthesis code to `current_run/attempt_N.scd`.
 
-**For N=1:** Start from Template D or E in `target_partials.txt`. These contain the exact partial frequencies, per-partial envelopes, frequency drift modulation, shaped residual noise, and percussive transient — all extracted from the target audio. Adapt the envelope shapes based on `target_eval.txt` categories.
-
-**For N>1:** Read `current_run/comparison_N-1.txt`. Copy the **BASE CODE FOR NEXT ATTEMPT** section (the best attempt so far) as your starting point, then make ONE targeted change based on the CORRECTION PROMPT. Keep your `// @param` annotations.
+**For N > seed_count:** Read `current_run/comparison_N-1.txt`. Copy the **BASE CODE FOR NEXT ATTEMPT** section (the best attempt so far) as your starting point, then make ONE targeted change based on the CORRECTION PROMPT. Keep your `// @param` annotations.
 
 **RULES — your code goes inside a SynthDef body automatically:**
 
@@ -59,7 +176,7 @@ Write synthesis code to `current_run/attempt_N.scd`.
    - **Noise/Texture**: `Dust`, `Dust2`, `Crackle`, `GrayNoise`, `ClipNoise`, `LFDNoise0/1/3`
    - **Envelopes/Dynamics**: `Decay`, `Decay2`, `Line`, `XLine`, `Lag`, `Lag2`, `Lag3`
    - **Spatial/Effects**: `FreeVerb`, `GVerb`, `CombL`, `CombC`, `AllpassN`, `AllpassL`
-   - **Spectral complexity**: `Klank`, `DynKlank`, `Pluck`, `Spring`
+   - **Spectral complexity**: `Klank`, `DynKlang`, `Pluck`, `Spring`
    - **Modulation**: `SinOsc` as LFO, `LFNoise0/1/2`, `LFDNoise0/1/3`, FM with `SinOsc`
    - **FluCoMa real-time UGens** (if installed): `FluidSines.ar` for sinusoidal re-synthesis, `FluidHPSS.ar` for harmonic/percussive separation, `FluidTransients.ar` for transient extraction. These are validated by the wrapper.
 7. `RLPF.ar(input, freq, rq)` — `rq` is reciprocal of Q (0.01–1.0). Named arg is `rq:`, NOT `quality:`.
@@ -148,25 +265,26 @@ exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/evaluate.py curr
 ### Step 5: Compare
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations>
 ```
 
-Replace `N` with the actual iteration number.
+Replace `N`, `<seed_count>`, and `<max_iterations>` with the actual values from `config.txt`.
 
 ### Step 6: Check Convergence
 
-Read `current_run/comparison_N.txt`.
+Read `current_run/comparison_N.txt`. Apply these checks **in priority order**:
 
-- If `composite_score` < `convergence_threshold` → go to **Finish**.
-- If N == `max_iterations` → go to **Finish**.
-- If a **PLATEAU DETECTED** section appears → you MUST switch architecture as instructed in that section.
-- Otherwise: increment N, go to Step 1. Use CORRECTION PROMPT and CATEGORY MISMATCHES to guide revisions.
+1. If `=== MANDATORY FINISH ===` appears → go to **Finish immediately** (highest priority — do NOT write another attempt).
+2. If `composite_score` < `convergence_threshold` → go to **Finish**.
+3. If `N >= max_iterations` → go to **Finish** (backup if the MANDATORY FINISH block is missing).
+4. If a **PLATEAU DETECTED** section appears **and** `N < max_iterations` → switch architecture as instructed.
+5. Otherwise → increment N, go to Step 1. Use CORRECTION PROMPT and CATEGORY MISMATCHES to guide revisions.
 
-### Revision Strategy (N > 1) — HILL-CLIMB
+### Revision Strategy (N > seed_count) — HILL-CLIMB
 
 The comparison report drives a strict hill-climb. Read these sections in order:
 
-1. **SCORE HISTORY** — shows every attempt's score and marks the BEST one.
+1. **SCORE HISTORY** — shows every attempt's score (seed attempts are labelled `[SEED]`) and marks the BEST one.
 2. **NEXT-ATTEMPT INSTRUCTION** — tells you exactly what to do:
    - *IMPROVED*: you just set a new best. Continue in the same direction.
    - *REGRESSION*: your last change made things WORSE. You MUST start your next attempt from the **BASE CODE FOR NEXT ATTEMPT** section (this is the best attempt's code, NOT your last one). Discard the change that regressed and try a different one. Do NOT keep editing the worse code.
@@ -177,15 +295,17 @@ The comparison report drives a strict hill-climb. Read these sections in order:
 
 **Plateau rule — mandatory architecture switch:**
 
-The comparison output detects plateaus automatically (no NEW best score for several iterations) and includes a PLATEAU DETECTED section with a ready-to-use code template whose frequencies are seeded from the target's dominant partials. When you see this section, you MUST use the provided template as your new starting point (add `// @param` annotations to it before Step 3b). After a switch you get a short grace window; if the new architecture cannot beat the best within 2 iterations, revert to the BASE CODE and try a different family.
+The comparison output detects plateaus automatically (no NEW best score for several hill-climb iterations) and includes a PLATEAU DETECTED section. The switch target is the **best-scoring unexplored seed family** (data-driven, from the seeding phase), or the next item in the static architecture list if no seed data is available. The PLATEAU DETECTED section includes the recommended architecture name and a ready-to-use template seeded with the target's dominant partials.
 
-**Architecture families to try (in order of preference):**
+When you see this section, you MUST use the provided template as your new starting point (add `// @param` annotations to it before Step 3b). After a switch you get a short grace window; if the new architecture cannot beat the best within 2 iterations, revert to the BASE CODE and try the next unexplored seed family.
 
-0. **FluCoMa-informed layered** (PREFERRED FIRST TRY): Use Template D or E from `target_partials.txt`. These contain exact partial frequencies, per-partial envelopes, frequency drift modulation, shaped residual noise, and percussive transient — all extracted from the target. The agent's job is to fine-tune parameters (envelope curves, modulation depths, noise levels, filter cutoffs) rather than guess the architecture from scratch.
+**Architecture families to try (in order of preference for plateau switches):**
+
+0. **FluCoMa-informed layered** (always seed 1 — evaluated during seeding phase): Use Template D or E from `target_partials.txt`.
 1. **Struck resonator**: `Klank.ar(freqArray, Decay.ar(Impulse.ar(0), 0.002, ClipNoise.ar(0.05)))` — best for bell/celesta/marimba-like sounds
-2. **Physical model**: `Pluck.ar(WhiteNoise.ar(0.1), Impulse.ar(0), freq, freq.reciprocal, 2.0)` — for plucked string character
-3. **FM synthesis**: `SinOsc.ar(freq + SinOsc.ar(modFreq, 0, modIndex * freq))` — for metallic/complex spectra
-4. **Resonator bank**: `Mix(Array.fill(N, { |i| Ringz.ar(click, baseFreq * (i+1), decayTime) }))` — for inharmonic resonance
+2. **FM synthesis**: `SinOsc.ar(freq + SinOsc.ar(modFreq, 0, modIndex * freq))` — for metallic/complex spectra
+3. **Resonator bank**: `Mix(Array.fill(N, { |i| Ringz.ar(click, baseFreq * (i+1), decayTime) }))` — for inharmonic resonance
+4. **Physical model**: `Pluck.ar(WhiteNoise.ar(0.1), Impulse.ar(0), freq, freq.reciprocal, 2.0)` — for plucked string character
 5. **Additive with envelope per partial**: each `SinOsc.ar` with its own `EnvGen` for natural decay variation
 6. **Hybrid transient + partials**: short noise burst for the attack, additive `SinOsc` for the body
 
@@ -197,7 +317,7 @@ The comparison output detects plateaus automatically (no NEW best score for seve
    ```
    exec cp current_run/attempt_N.scd current_run/final_result.scd
    ```
-2. Write `current_run/report.md` with: iterations performed, final convergence metrics (composite_score, spectral_convergence, envelope_distance), key matches/mismatches, what worked, architecture families tried.
+2. Write `current_run/report.md` with: iterations performed, seeding-phase results (each seed's family and score), final convergence metrics (composite_score, spectral_convergence, envelope_distance), key matches/mismatches, what worked, architecture families tried.
 
 ## Rules
 
@@ -209,3 +329,6 @@ The comparison output detects plateaus automatically (no NEW best score for seve
 - Number files sequentially: attempt_1.scd, attempt_2.scd, etc.
 - Do NOT install packages with pip or apt.
 - ALWAYS use the exact commands shown above.
+- During Phase A (seeding), ALWAYS pass `--seed-count <seed_count> --max-iter <max_iterations> --arch <family_name>` to compare.py.
+- During Phase B and the hill-climb, ALWAYS pass `--seed-count <seed_count> --max-iter <max_iterations>` (without `--arch`) to compare.py.
+- When `=== MANDATORY FINISH ===` appears in any comparison report, STOP and complete the Finish step before ending.
