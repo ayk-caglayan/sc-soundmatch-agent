@@ -61,10 +61,16 @@ During Phase A, if Steps 1b/2/3 fail **3 consecutive times for the same seed** (
 |--------|-------------|----------------|
 | 1 | `flucoma_template` | Template D or E from `target_partials.txt` (consult reference examples first) |
 | 2 | `struck_resonator` | Copy the `struck_resonator` block from `current_run/seed_templates.txt` |
-| 3 | `fm_synthesis` | Copy the `fm_synthesis` block from `current_run/seed_templates.txt` |
-| 4 | `resonator_bank` | Copy the `resonator_bank` block from `current_run/seed_templates.txt` |
+| 3 | `physical_model` | Copy the `physical_model` block from `current_run/seed_templates.txt` |
+| 4 | `fm_synthesis` | Copy the `fm_synthesis` block from `current_run/seed_templates.txt` |
+| 5 | `resonator_bank` | Copy the `resonator_bank` block from `current_run/seed_templates.txt` |
+| 6 | `granular` | Copy the `granular` block from `current_run/seed_templates.txt` |
+| 7 | `waveshaper_feedback` | Copy the `waveshaper_feedback` block from `current_run/seed_templates.txt` |
+| 8 | `subtractive` | Copy the `subtractive` block from `current_run/seed_templates.txt` |
+| 9 | `chaos_noise` | Copy the `chaos_noise` block from `current_run/seed_templates.txt` |
+| 10 | `formant_vocal` | Copy the `formant_vocal` block from `current_run/seed_templates.txt` |
 
-`current_run/seed_templates.txt` contains validated SuperCollider code for each family, with frequencies pre-seeded from the target's dominant partials. **You MUST read it and copy the relevant block** before writing seeds 2–4. Do NOT invent UGen call signatures.
+`current_run/seed_templates.txt` contains validated SuperCollider code for each family, with frequencies pre-seeded from the target's dominant partials. **You MUST read it and copy the relevant block** before writing seeds 2–10. Do NOT invent UGen call signatures.
 
 **RULES for all seeds:**
 
@@ -119,7 +125,7 @@ exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/evaluate.py curr
 exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations> --arch <family_name>
 ```
 
-Replace `N`, `<seed_count>`, and `<family_name>` with the actual values (e.g. `--seed-count 4 --arch struck_resonator`).
+Replace `N`, `<seed_count>`, and `<family_name>` with the actual values (e.g. `--seed-count 10 --arch granular`).
 
 **Step 6: Check if more seeds needed**
 
@@ -131,7 +137,7 @@ Read `current_run/comparison_N.txt` — the SEEDING PHASE STATUS section tells y
 
 **Step B1: Identify the winner**
 
-Read `current_run/comparison_<seed_count>.txt`. The SEEDING PHASE STATUS section names the winning attempt (lowest score) and its architecture family.
+Read `current_run/comparison_<seed_count>.txt`. The SEEDING PHASE STATUS section names the winning attempt (lowest score) and its architecture family. When raw scores are within 0.02, `flucoma_template` is preferred (tiebreak — see `compare.py`).
 
 **Step B2: Full-budget optimization of the winner**
 
@@ -169,15 +175,19 @@ Write synthesis code to `current_run/attempt_N.scd`.
 2. No `( )` wrapper. Just statements.
 3. ALL `var` declarations at the very top — before any other statement.
 4. End with `Out.ar(0, sig)` or `Out.ar(0, sig.dup)`.
-5. Self-contained — no external files, buffers, or live audio input.
+5. Self-contained — no external files, buffers loaded from disk, or live audio input. `LocalBuf` filled at synth init is allowed for wavetable/granular techniques.
 6. Use any valid SuperCollider UGen. The full SC class index (3473 classes) is validated automatically. Beyond the basics (SinOsc, Saw, Pulse, LPF, HPF, BPF, RLPF, RHPF, EnvGen, WhiteNoise, PinkNoise, BrownNoise, LFNoise0/1/2, Mix, Pan2), consider richer UGens when the target calls for it:
-   - **Oscillators**: `Blip`, `Formant`, `LFTri`, `LFSaw`, `LFPulse`, `LFCub`, `VarSaw`, `Impulse`, `Klang`, `DynKlang`
+   - **Oscillators**: `Blip`, `Formant`, `LFTri`, `LFSaw`, `LFPulse`, `LFCub`, `VarSaw`, `Impulse`, `Klang`, `DynKlang`, `SinOscFB`, `PMOsc`, `Vibrato`
+   - **Granular**: `GrainSin`, `GrainFM`, `TGrains` (with `LocalBuf` if needed)
    - **Filters**: `Resonz`, `MoogFF`, `Ringz`, `BRF`, `RHPF`, `Median`, `Slew`
    - **Noise/Texture**: `Dust`, `Dust2`, `Crackle`, `GrayNoise`, `ClipNoise`, `LFDNoise0/1/3`
+   - **Chaos**: `Gendy1`, `Gendy2`, `Gendy3`, `CuspL`, `HenonL`, `LorenzL`, `LatoocarfianL`
    - **Envelopes/Dynamics**: `Decay`, `Decay2`, `Line`, `XLine`, `Lag`, `Lag2`, `Lag3`
-   - **Spatial/Effects**: `FreeVerb`, `GVerb`, `CombL`, `CombC`, `AllpassN`, `AllpassL`
+   - **Spatial/Effects**: `FreeVerb`, `GVerb`, `CombL`, `CombC`, `AllpassN`, `AllpassL`, `FreqShift`, `PitchShift`
    - **Spectral complexity**: `Klank`, `DynKlang`, `Pluck`, `Spring`
-   - **Modulation**: `SinOsc` as LFO, `LFNoise0/1/2`, `LFDNoise0/1/3`, FM with `SinOsc`
+   - **Shaping**: `.tanh`, `.fold2`, `.softclip`, `.distort`, `.clip2` on oscillator output
+   - **Modulation**: `SinOsc` as LFO, `LFNoise0/1/2`, `LFDNoise0/1/3`, FM with `SinOsc`, ring mod (`sig1 * sig2`)
+   - **Event patterns**: `Demand`, `Duty`, `Dseq` for internal rhythmic/trigger patterns (no external files)
    - **FluCoMa real-time UGens** (if installed): `FluidSines.ar` for sinusoidal re-synthesis, `FluidHPSS.ar` for harmonic/percussive separation, `FluidTransients.ar` for transient extraction. These are validated by the wrapper.
 7. `RLPF.ar(input, freq, rq)` — `rq` is reciprocal of Q (0.01–1.0). Named arg is `rq:`, NOT `quality:`.
 8. `EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2)` — first arg is `envelope:`, NOT `env:`. Always include `doneAction: 2`.
@@ -193,14 +203,28 @@ Write synthesis code to `current_run/attempt_N.scd`.
     - CORRECT: `aEnv = EnvGen.kr(Env.adsr(1.5, 4.0, 0.4, 10.0), doneAction: 2);`
 12. Put `doneAction: 2` on **exactly one** `EnvGen` — the first/primary partial envelope (as in Templates B–E). Do NOT put `doneAction: 2` on every partial.
 13. Do NOT add a global `aEnv` signal and then multiply `sig * aEnv` when per-partial envelopes already shape the amplitude. That double-gates the signal and shortens audible output.
+14. SuperCollider has **NO operator precedence** — `a + b * c` evaluates as `(a + b) * c`, left to right. Always parenthesize layered terms:
+    - WRONG: `sig = sig + WhiteNoise.ar(0.01) * EnvGen.kr(Env.perc(0.01, 1.5));`
+    - CORRECT: `sig = sig + (WhiteNoise.ar(0.01) * EnvGen.kr(Env.perc(0.01, 1.5)));`
 
 **TUNABLE PARAMETERS — required for the optimizer (Step 3b):**
 
-14. Mark 3–8 continuous parameters as tunable so the numeric optimizer can fine-tune them. The tunable MUST be a plain numeric literal assigned to a variable, with a trailing annotation `// @param <lo> <hi> [log]`:
+15. Mark 3–8 continuous parameters as tunable so the numeric optimizer can fine-tune them. The tunable MUST be a plain numeric literal assigned to a variable, with a trailing annotation `// @param <lo> <hi> [log]`:
     - `cutoff = 3000;   // @param 800 8000 log`  (frequencies/times: use `log`)
     - `noiseLevel = 0.05;  // @param 0.005 0.2 log`
     - `modIndex = 3;    // @param 0.5 8.0`  (linear range)
     Choose parameters that meaningfully affect the audio (filter cutoffs, noise/amp levels, modulation depths/rates, decay times). Keep `Env` *segment time* literals un-annotated (envelope timing rules above still apply) — annotate amplitudes, cutoffs, and modulation values instead. Do NOT annotate the partial frequencies you extracted from the target.
+
+**IDIOMATIC SC PATTERNS — use these to build richer structures:**
+
+16. **Oscillator banks**: `sig = Array.fill(6, { |i| SinOsc.ar(freq * (i+1)) * (1/(i+1)) }).sum;`
+17. **Detuned stacks**: `Mix(Saw.ar([freq, freq * 1.003, freq * 0.997]))` — array args expand to multichannel, `Mix` sums to mono.
+18. **Ring modulation**: `sig = osc1 * osc2;` — multiplies two signals for inharmonic sidebands.
+19. **Filter sweep without UGen-scaled Env times**: use a second `EnvGen.kr(Env.perc(...))` to modulate cutoff — `MoogFF.ar(osc, baseCutoff * filterEnv, gain)`.
+20. **Resonator banks**: `Mix(Array.fill(N, { |i| Ringz.ar(exciter, freq * (i+1), decay) * amp[i] }))`.
+21. **Granular cloud (no buffer)**: `Mix(GrainSin.ar(2, Dust.ar(density), dur, centerFreq, 0, -1, maxGrains))`.
+22. **Soft saturation**: `SinOscFB.ar(freq, feedback).tanh` or `Saw.ar(freq).softclip(0.8)`.
+23. **Formant stack**: sum multiple `Formant.ar(fund, formFreq, bw)` at different formant frequencies from the target partials.
 
 ### Step 1b: Pre-Validate
 
@@ -215,6 +239,7 @@ This is a fast (<100ms) check that catches:
 - UGen-scaled `Env` segment times (e.g. `* aEnv` inside time arrays)
 - `Env.adsr(...).kr(N)` misuse
 - Multiple `doneAction: 2` occurrences
+- Unparenthesized layering (`sig + noise * EnvGen` — SC evaluates as `(sig + noise) * EnvGen`)
 
 **If it fails:** read the error output, fix `attempt_N.scd`, re-run. Do NOT proceed to Step 2.
 
@@ -293,21 +318,36 @@ The comparison report drives a strict hill-climb. Read these sections in order:
 
 **Make exactly ONE structural change per iteration** (add/remove an oscillator, change an envelope shape, swap a filter, adjust modulation structure). Keep the `// @param` annotations so the optimizer can re-tune after your change. Do NOT hand-tune annotated numeric values — that is the optimizer's job. Do NOT rewrite from scratch unless the plateau rule triggers.
 
+**Hybridization moves** — when 2 consecutive filter/parameter tweaks fail to improve, try ONE of these (still one change per iteration). Copy the donor block from `current_run/seed_templates.txt`; do NOT invent UGen signatures:
+
+- **Parallel layer**: add another family's core signal at low mix — `sig = sig + (otherSig * layerGain);` with `layerGain` as `// @param 0.05 0.4 log`. Example: Klank body + `(Formant.ar(...) * layerGain)`.
+- **Serial routing**: feed the current signal through another family's processor — e.g. `sig = MoogFF.ar(sig, cutoff, gain)` or `sig = sig.tanh` on an FM output, or use current `sig` as the `Klank`/`Ringz` exciter instead of a click.
+- **Exciter swap**: replace the click/noise burst with another family's source — e.g. swap `ClipNoise` click for `SinOscFB.ar(...)`, `Gendy1.ar(...)`, or a `GrainSin` cloud as the resonator excitation.
+
+Always parenthesize gated layers (rule 14). Hybrid moves count as your one structural change for that iteration.
+
 **Plateau rule — mandatory architecture switch:**
 
 The comparison output detects plateaus automatically (no NEW best score for several hill-climb iterations) and includes a PLATEAU DETECTED section. The switch target is the **best-scoring unexplored seed family** (data-driven, from the seeding phase), or the next item in the static architecture list if no seed data is available. The PLATEAU DETECTED section includes the recommended architecture name and a ready-to-use template seeded with the target's dominant partials.
 
 When you see this section, you MUST use the provided template as your new starting point (add `// @param` annotations to it before Step 3b). After a switch you get a short grace window; if the new architecture cannot beat the best within 2 iterations, revert to the BASE CODE and try the next unexplored seed family.
 
-**Architecture families to try (in order of preference for plateau switches):**
+**Architecture families (matching `SEED_FAMILIES` / `ARCHITECTURE_ORDER` in `compare.py`):**
+
+All 10 families are evaluated during the seeding phase (default `seed_count=10`). Plateau switches pick the **best-scoring unexplored seed family** from that data:
 
 0. **FluCoMa-informed layered** (always seed 1 — evaluated during seeding phase): Use Template D or E from `target_partials.txt`.
-1. **Struck resonator**: `Klank.ar(freqArray, Decay.ar(Impulse.ar(0), 0.002, ClipNoise.ar(0.05)))` — best for bell/celesta/marimba-like sounds
-2. **FM synthesis**: `SinOsc.ar(freq + SinOsc.ar(modFreq, 0, modIndex * freq))` — for metallic/complex spectra
-3. **Resonator bank**: `Mix(Array.fill(N, { |i| Ringz.ar(click, baseFreq * (i+1), decayTime) }))` — for inharmonic resonance
-4. **Physical model**: `Pluck.ar(WhiteNoise.ar(0.1), Impulse.ar(0), freq, freq.reciprocal, 2.0)` — for plucked string character
-5. **Additive with envelope per partial**: each `SinOsc.ar` with its own `EnvGen` for natural decay variation
-6. **Hybrid transient + partials**: short noise burst for the attack, additive `SinOsc` for the body
+1. **Struck resonator** (`struck_resonator`): `Klank.ar(freqArray, click)` — bell/celesta/marimba-like sounds
+2. **Physical model** (`physical_model`): `Pluck.ar(WhiteNoise.ar(0.1), Impulse.ar(0), freq, freq.reciprocal, 2.0)` — plucked string character
+3. **FM synthesis** (`fm_synthesis`): `SinOsc.ar(freq + SinOsc.ar(modFreq, 0, modIndex * freq))` — metallic/complex spectra
+4. **Resonator bank** (`resonator_bank`): `Mix(Array.fill(N, { |i| Ringz.ar(click, baseFreq * (i+1), decayTime) }))` — inharmonic resonance
+5. **Granular** (`granular`): `Mix(GrainSin.ar(2, Dust.ar(density), dur, centerFreq, 0, -1, maxGrains))` — textured pads, evolving clouds
+6. **Waveshaper feedback** (`waveshaper_feedback`): `SinOscFB.ar(freq, feedback).tanh` — brassy, distorted, growling spectra
+7. **Subtractive** (`subtractive`): detuned `Saw`/`Pulse` through `MoogFF`/`RLPF` with filter envelope — classic analog character
+8. **Chaos noise** (`chaos_noise`): `Gendy1`/`CuspL`/`LatoocarfianL` through `Resonz` — inharmonic, noisy, evolving targets
+9. **Formant vocal** (`formant_vocal`): stacked `Formant.ar(fund, formFreq, bw)` — vowel-like, hollow spectra
+10. **Additive with envelope per partial**: each `SinOsc.ar` with its own `EnvGen` for natural decay variation
+11. **Hybrid transient + partials**: short noise burst for the attack, additive `SinOsc` for the body
 
 ## Finish
 

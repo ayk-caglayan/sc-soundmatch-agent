@@ -32,11 +32,13 @@ _SYNTHESIS_CONCEPTS = {
         ),
         'neutral': (
             'Use SinOsc or Saw with moderate LPF (1500-3000Hz). Mix harmonics. '
-            'Formant with mid-range frequencies, or Blip with moderate harmonics.'
+            'Formant with mid-range frequencies, or Blip with moderate harmonics. '
+            'For vowel-like targets try formant_vocal architecture (stacked Formant.ar).'
         ),
         'bright': (
             'Use Saw, Pulse, or Blip, LPF above 3000Hz or no filter. '
-            'Add upper harmonics via additive SinOsc or Klang. LFSaw or VarSaw.'
+            'Add upper harmonics via additive SinOsc or Klang. LFSaw or VarSaw. '
+            'Try subtractive (detuned Saw through MoogFF) or waveshaper_feedback (SinOscFB.tanh).'
         ),
         'very_bright': (
             'Use Pulse/Saw/Blip with wide bandwidth, HPF to remove lows. '
@@ -77,7 +79,7 @@ _SYNTHESIS_CONCEPTS = {
         'clean': (
             'Use SinOsc with a few harmonics (additive synthesis). '
             'Blip with low harmonic count. LFTri or LFSaw for mild harmonics. '
-            'Formant for clean vowel-like tones.'
+            'Formant for clean vowel-like tones — try formant_vocal architecture.'
         ),
         'mixed': (
             'Mix SinOsc harmonics with filtered noise or use Saw/VarSaw. '
@@ -86,11 +88,12 @@ _SYNTHESIS_CONCEPTS = {
         ),
         'gritty': (
             'Use Saw/Pulse with moderate noise, or ring modulation (SinOsc * SinOsc). '
-            'Crackle.ar for gritty texture. Distortion via clipping (sig.clip2). '
-            'LFDNoise1 modulating frequency for roughness.'
+            'Crackle.ar for gritty texture. Distortion via SinOscFB.tanh or sig.softclip. '
+            'Try waveshaper_feedback architecture. LFDNoise1 modulating frequency for roughness.'
         ),
         'noisy': (
             'Heavy WhiteNoise, PinkNoise, GrayNoise, or ClipNoise. '
+            'Try chaos_noise (Gendy1/CuspL/LatoocarfianL through Resonz) or granular (GrainSin cloud). '
             'Crackle.ar with high chaos parameter. Dust.ar at high density. '
             'Very wide-band Pulse or Blip with many harmonics.'
         ),
@@ -112,12 +115,13 @@ _SYNTHESIS_CONCEPTS = {
         'dynamic': (
             'Use faster LFO modulation (2-10Hz), FM synthesis, or filter sweeps. '
             'LFNoise1.kr on filter cutoff. XLine.kr sweeping frequency. '
-            'CombL for resonant feedback coloring.'
+            'CombL for resonant feedback coloring. Granular (GrainSin + Dust) for evolving texture.'
         ),
         'chaotic': (
             'Use random modulation: LFNoise0/1/2 or LFDNoise0/1/3 on freq/cutoff. '
+            'Try chaos_noise architecture (Gendy1, CuspL, LatoocarfianL through Resonz). '
             'Fast FM with SinOsc as modulator at audio rate. '
-            'Dust.ar as trigger for random amplitude bursts. '
+            'Dust.ar as trigger for random amplitude bursts. Granular (GrainSin) for cloud texture. '
             'Crackle.ar for unpredictable texture.'
         ),
     },
@@ -177,16 +181,18 @@ _SYNTHESIS_CONCEPTS = {
         ),
         'moderate': (
             'Use Saw or 4-6 SinOsc harmonics with varying amplitudes. '
-            'Formant for vowel-like moderate complexity. '
+            'Formant for vowel-like moderate complexity — try formant_vocal architecture. '
             'Klang with 4-6 partials. VarSaw.'
         ),
         'rich': (
             'Use Mix of multiple oscillators, FM synthesis, or Klang with many partials. '
+            'Try waveshaper_feedback (SinOscFB.tanh) or subtractive (detuned Saw through MoogFF). '
             'DynKlank for resonant richness. Formant with multiple resonances. '
             'Blip with 20-50 harmonics. FM: SinOsc.ar(freq + SinOsc.ar(modFreq) * modDepth).'
         ),
         'dense': (
             'Use many oscillators, FM, ring mod, or noise-based synthesis. '
+            'Try chaos_noise or granular architecture for complex evolving texture. '
             'DynKlank with many resonances. Mix of Saw + noise + FM. '
             'Klang with 10+ partials. Crackle + filtered noise + oscillators. '
             'Ring modulation: sig1 * sig2.'

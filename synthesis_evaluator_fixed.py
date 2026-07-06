@@ -347,6 +347,15 @@ class SynthesisEvaluator:
             np.linalg.norm(env_diff) / (env_ref_norm + 1e-12)
         )
 
+        # Peak onset strength — proxy for punchy attack (category attack_time).
+        onset_max_test = float(np.max(env_test))
+        onset_max_ref = float(np.max(env_ref))
+        metrics['onset_max_test'] = onset_max_test
+        metrics['onset_max_ref'] = onset_max_ref
+        metrics['onset_max_penalty'] = float(
+            min(abs(onset_max_test - onset_max_ref) / (onset_max_ref + 1e-12), 2.0)
+        )
+
         # --- composite score (lower = better match) ---
         # Weighted combination: spectral convergence is the primary term,
         # log_spectral_distance, envelope_distance, and category accuracy
@@ -356,9 +365,10 @@ class SynthesisEvaluator:
         else:
             cat_penalty = min(category_mismatches / 9.0, 1.0)
         metrics['composite_score'] = float(
-            0.4 * metrics['spectral_convergence']
-            + 0.25 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
-            + 0.2 * min(metrics['envelope_distance'], 2.0)
+            0.35 * metrics['spectral_convergence']
+            + 0.22 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
+            + 0.18 * min(metrics['envelope_distance'], 2.0)
+            + 0.10 * metrics['onset_max_penalty']
             + 0.15 * cat_penalty
         )
 

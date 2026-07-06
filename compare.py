@@ -25,7 +25,7 @@ CATEGORY_SUGGESTIONS = {
         ('bright', 'very_bright'): 'Lower RLPF/LPF cutoff frequency, switch from Pulse to Saw or SinOsc, or reduce high harmonics.',
         ('very_bright', 'bright'): 'Slightly lower filter cutoff or add gentle lowpass filtering.',
         'default_higher': 'REDUCE high frequency content. Lower filter cutoff, use LPF/RLPF, or choose a darker oscillator.',
-        'default_lower': 'INCREASE brightness. Raise filter cutoff, use HPF, or add harmonics with Saw/Pulse.',
+        'default_lower': 'INCREASE brightness. Try subtractive (Saw/Pulse through MoogFF) or waveshaper_feedback. Raise filter cutoff, use HPF, or add harmonics with Saw/Pulse.',
     },
     'attack_time': {
         'default_higher': 'LENGTHEN attack time. Use Env.adsr with longer attack param (0.1-0.5s).',
@@ -33,11 +33,11 @@ CATEGORY_SUGGESTIONS = {
     },
     'harmonic_to_noise_ratio': {
         'default_higher': 'REDUCE noise. Remove WhiteNoise/PinkNoise sources, increase harmonic oscillator amplitude.',
-        'default_lower': 'ADD noise or inharmonic content. Mix in WhiteNoise, use ring modulation, or add detuning.',
+        'default_lower': 'ADD noise or inharmonic content. Try chaos_noise (Gendy1/CuspL through Resonz) or granular (GrainSin cloud). Mix in WhiteNoise, use ring modulation, or add detuning.',
     },
     'spectral_flux_normalized': {
         'default_higher': 'REDUCE spectral movement. Remove random modulation, stabilize LFO rates, use static filter settings.',
-        'default_lower': 'ADD spectral movement. Use LFO on filter cutoff, add frequency modulation, or use Dust-triggered changes.',
+        'default_lower': 'ADD spectral movement. Try granular (GrainSin + Dust) or chaos_noise (Gendy1/LatoocarfianL). Use LFO on filter cutoff, add frequency modulation, or use Dust-triggered changes.',
     },
     'temporal_centroid': {
         'default_higher': 'SHIFT energy later. Use longer attack, slower build, or back-loaded envelope shape.',
@@ -49,7 +49,7 @@ CATEGORY_SUGGESTIONS = {
     },
     'spectral_complexity_mean': {
         'default_higher': 'REDUCE spectral density. Use fewer oscillators, simpler waveforms (SinOsc), or stronger filtering.',
-        'default_lower': 'INCREASE spectral richness. Add more oscillators, use FM synthesis, or widen filter bandwidth.',
+        'default_lower': 'INCREASE spectral richness. Try waveshaper_feedback (SinOscFB.tanh), subtractive (detuned Saw through MoogFF), or FM synthesis. Add more oscillators or widen filter bandwidth.',
     },
     'spectral_slope': {
         'default_higher': 'STEEPEN spectral rolloff. Apply stronger lowpass filter (lower cutoff or higher order).',
@@ -157,21 +157,56 @@ ARCHITECTURE_TEMPLATES = {
         "sig = Mix(Array.fill(8, { |i| Ringz.ar(click, 300 * (i+1) * (1 + (0.01 * i)), 1.5 - (0.15*i)) * (1/(i+1)) }));\n"
         "Out.ar(0, (sig * env * 0.2).dup);"
     ),
+    'granular': (
+        "var env, sig, centerFreq;\n"
+        "env = EnvGen.kr(Env.perc(0.05, 1.5), doneAction: 2);\n"
+        "centerFreq = 440;\n"
+        "sig = Mix(GrainSin.ar(2, Dust.ar(15), 0.08, centerFreq, 0, -1, 128));\n"
+        "Out.ar(0, (sig * env * 0.3).dup);"
+    ),
+    'waveshaper_feedback': (
+        "var env, sig, feedback;\n"
+        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        "feedback = 0.5;\n"
+        "sig = SinOscFB.ar(440, feedback).tanh;\n"
+        "Out.ar(0, (sig * env * 0.3).dup);"
+    ),
+    'subtractive': (
+        "var env, osc, sig, cutoff, modCutoff;\n"
+        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        "cutoff = 2000;\n"
+        "modCutoff = cutoff * EnvGen.kr(Env.perc(0.05, 1.0));\n"
+        "osc = Mix(Saw.ar([440, 440 * 1.007]));\n"
+        "sig = MoogFF.ar(osc, modCutoff, 2.5);\n"
+        "Out.ar(0, (sig * env * 0.3).dup);"
+    ),
+    'chaos_noise': (
+        "var env, chaos, sig, resFreq;\n"
+        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        "resFreq = 440;\n"
+        "chaos = Mix([Gendy1.ar(1, 1, 0.3, 0.3, 200, 800, 0.5, 0.5, 12), "
+        "CuspL.ar(100, 3, -3, 0.1) * 0.3]);\n"
+        "sig = Resonz.ar(chaos, resFreq, 0.05);\n"
+        "Out.ar(0, (sig * env * 0.25).dup);"
+    ),
+    'formant_vocal': (
+        "var env, sig, fund;\n"
+        "env = EnvGen.kr(Env.perc(0.05, 1.5), doneAction: 2);\n"
+        "fund = 440;\n"
+        "sig = Formant.ar(fund, fund * 2.5, fund * 0.2) + Formant.ar(fund, fund * 3.5, fund * 0.25);\n"
+        "Out.ar(0, (sig * env * 0.25).dup);"
+    ),
 }
 
 ARCHITECTURE_ORDER = [
     'struck_resonator', 'physical_model', 'fm_synthesis', 'resonator_bank',
+    'granular', 'waveshaper_feedback', 'subtractive', 'chaos_noise', 'formant_vocal',
 ]
 
 # Ordered list of architecture families used during the seeding phase.
 # The FluCoMa-template family is always seed 1 (written by the agent directly
 # from target_partials.txt templates, not from ARCHITECTURE_TEMPLATES).
-SEED_FAMILIES = [
-    'flucoma_template',
-    'struck_resonator',
-    'fm_synthesis',
-    'resonator_bank',
-]
+SEED_FAMILIES = ['flucoma_template', *ARCHITECTURE_ORDER]
 
 # Convergence control:
 #   PLATEAU_PATIENCE — iterations with no NEW best score before a plateau fires.
@@ -180,7 +215,70 @@ SEED_FAMILIES = [
 #   IMPROVEMENT_EPS  — minimum absolute score drop that counts as a "new best".
 PLATEAU_PATIENCE = 4
 SWITCH_GRACE = 2
-IMPROVEMENT_EPS = 1e-4
+IMPROVEMENT_EPS = 2e-3
+SEED_TIEBREAK_EPS = 0.02
+PREFERRED_SEED_FAMILIES = ['flucoma_template']
+
+
+def parse_decomposition_sinusoidal_pct(partials_path):
+    """Return sinusoidal_energy percent from target_partials.txt, or None."""
+    if not partials_path or not os.path.exists(partials_path):
+        return None
+    try:
+        for line in Path(partials_path).read_text(encoding='utf-8').splitlines():
+            if line.startswith('sinusoidal_energy:'):
+                return float(line.split(':', 1)[1].strip().rstrip('%'))
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def pick_seed_winner(seed_scores, partials_path=None):
+    """Pick Phase B seed family; prefer flucoma when scores are close."""
+    if not seed_scores:
+        return None
+
+    best_score = min(seed_scores.values())
+    eps = SEED_TIEBREAK_EPS
+    sin_pct = parse_decomposition_sinusoidal_pct(partials_path)
+    if sin_pct is not None and sin_pct > 50.0:
+        eps *= 1.5
+
+    close = [fam for fam, sc in seed_scores.items() if sc <= best_score + eps]
+    for pref in PREFERRED_SEED_FAMILIES:
+        if pref in close:
+            return pref
+    return min(seed_scores.items(), key=lambda x: x[1])[0]
+
+
+def attempt_for_family(progress, family):
+    """Return attempt number for a seed family name, or None."""
+    for attempt, fam in progress.get('attempt_architectures', {}).items():
+        if fam == family:
+            return int(attempt)
+    return None
+
+
+def apply_seed_winner_tiebreak(progress, partials_path=None):
+    """Re-resolve best_attempt after seeding using tiebreak rules."""
+    seed_scores = progress.get('seed_scores', {})
+    if not seed_scores:
+        return progress
+
+    winner_fam = pick_seed_winner(seed_scores, partials_path)
+    if not winner_fam:
+        return progress
+
+    winner_attempt = attempt_for_family(progress, winner_fam)
+    if winner_attempt is None:
+        return progress
+
+    raw_best = min(seed_scores.items(), key=lambda x: x[1])[0]
+    progress['best_attempt'] = winner_attempt
+    progress['best_score'] = seed_scores[winner_fam]
+    progress['seed_winner_family'] = winner_fam
+    progress['seed_winner_tiebreak'] = winner_fam != raw_best
+    return progress
 
 
 def parse_partials(path):
@@ -263,11 +361,65 @@ def build_seeded_templates(partials):
         "Out.ar(0, (sig * env * 0.2).dup);"
     )
 
+    form2 = tfreqs[1] if len(tfreqs) > 1 else fundamental * 2.5
+    form3 = tfreqs[2] if len(tfreqs) > 2 else fundamental * 3.5
+
+    granular = (
+        "var env, sig, centerFreq;\n"
+        "env = EnvGen.kr(Env.perc(0.05, 1.5), doneAction: 2);\n"
+        f"centerFreq = {fundamental:.1f};\n"
+        "sig = Mix(GrainSin.ar(2, Dust.ar(15), 0.08, centerFreq, 0, -1, 128));\n"
+        "Out.ar(0, (sig * env * 0.3).dup);"
+    )
+
+    waveshaper = (
+        "var env, sig, feedback;\n"
+        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        "feedback = 0.5;\n"
+        f"sig = SinOscFB.ar({fundamental:.1f}, feedback).tanh;\n"
+        "Out.ar(0, (sig * env * 0.3).dup);"
+    )
+
+    subtractive = (
+        "var env, osc, sig, cutoff, modCutoff;\n"
+        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        "cutoff = 2000;\n"
+        "modCutoff = cutoff * EnvGen.kr(Env.perc(0.05, 1.0));\n"
+        f"osc = Mix(Saw.ar([{fundamental:.1f}, {fundamental * 1.007:.1f}]));\n"
+        "sig = MoogFF.ar(osc, modCutoff, 2.5);\n"
+        "Out.ar(0, (sig * env * 0.3).dup);"
+    )
+
+    chaos = (
+        "var env, chaos, sig, resFreq;\n"
+        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        f"resFreq = {fundamental:.1f};\n"
+        f"chaos = Mix([Gendy1.ar(1, 1, 0.3, 0.3, {fundamental * 0.5:.0f}, "
+        f"{fundamental * 2:.0f}, 0.5, 0.5, 12), "
+        f"CuspL.ar({fundamental * 0.25:.1f}, 3, -3, 0.1) * 0.3]);\n"
+        "sig = Resonz.ar(chaos, resFreq, 0.05);\n"
+        "Out.ar(0, (sig * env * 0.25).dup);"
+    )
+
+    formant = (
+        "var env, sig, fund;\n"
+        "env = EnvGen.kr(Env.perc(0.05, 1.5), doneAction: 2);\n"
+        f"fund = {fundamental:.1f};\n"
+        f"sig = Formant.ar(fund, {form2:.1f}, fund * 0.2) + "
+        f"Formant.ar(fund, {form3:.1f}, fund * 0.25);\n"
+        "Out.ar(0, (sig * env * 0.25).dup);"
+    )
+
     return {
         'struck_resonator': struck,
         'physical_model': physical,
         'fm_synthesis': fm,
         'resonator_bank': resonator,
+        'granular': granular,
+        'waveshaper_feedback': waveshaper,
+        'subtractive': subtractive,
+        'chaos_noise': chaos,
+        'formant_vocal': formant,
     }
 
 
@@ -446,7 +598,8 @@ def read_run_config(progress_dir):
 
 
 def update_progress(output_dir, iteration, composite_score, seeded_templates=None,
-                    seed_count=0, arch=None, max_iterations=0, convergence_threshold=0.0):
+                    seed_count=0, arch=None, max_iterations=0, convergence_threshold=0.0,
+                    partials_path=None):
     """Update progress.json with score history, elitism, and plateau handling.
 
     Plateau detection is based on lack of a NEW best score over the last
@@ -530,6 +683,9 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
         for fam in seed_families_used:
             if fam not in progress['architectures_tried'] and fam != 'flucoma_template':
                 progress['architectures_tried'].append(fam)
+        apply_seed_winner_tiebreak(progress, partials_path)
+        progress['iters_since_best'] = iteration - progress['best_attempt']
+        progress['delta_vs_best'] = composite_score - progress['best_score']
 
     # Plateau detection is suppressed during seeding.
     plateau = False
@@ -605,6 +761,8 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     lines.append(f"spectral_convergence: {convergence.get('spectral_convergence', 0):.4f}")
     lines.append(f"log_spectral_distance: {convergence.get('log_spectral_distance', 0):.4f}")
     lines.append(f"envelope_distance: {convergence.get('envelope_distance', 0):.4f}")
+    if 'onset_max_penalty' in convergence:
+        lines.append(f"onset_max_penalty: {convergence.get('onset_max_penalty', 0):.4f}")
     lines.append(f"snr_db: {convergence.get('snr_db', 0):.2f}")
     lines.append(f"rmse: {convergence.get('rmse', 0):.6f}")
     lines.append("")
@@ -667,13 +825,21 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                 f"score: {composite:.4f})."
             )
             if is_final_seed:
-                # Announce the winner.
-                winner_fam = arch_map.get(str(best_attempt), 'unknown')
+                # Announce the winner (may differ from raw best via tiebreak).
+                winner_fam = progress.get('seed_winner_family') or arch_map.get(
+                    str(best_attempt), 'unknown'
+                )
                 lines.append("")
                 lines.append(
                     f"ALL SEEDS EVALUATED. WINNER: attempt {best_attempt} "
                     f"(family: {winner_fam}, score: {best_score:.4f})."
                 )
+                if progress.get('seed_winner_tiebreak'):
+                    raw_best = min(seed_scores.items(), key=lambda x: x[1])
+                    lines.append(
+                        f"(Tiebreak: {winner_fam} preferred over {raw_best[0]} "
+                        f"({raw_best[1]:.4f}) — scores within {SEED_TIEBREAK_EPS})."
+                    )
                 lines.append(
                     "NEXT STEP (Phase B): Re-run optimize_params.py on "
                     f"attempt_{best_attempt}.scd with the FULL optimizer_budget "
@@ -820,13 +986,15 @@ def dump_seed_templates(partials_path, output_path):
     templates = build_seeded_templates(partials)
 
     lines = [
-        "# Seed Templates — copy the relevant block as your starting point.",
+        "# Architecture Templates — copy blocks from this file.",
+        "# Seeds 2–4: use struck_resonator, fm_synthesis, resonator_bank only.",
+        "# Plateau switches and hybrid layers: any block below.",
         "# Frequencies are seeded from the target's dominant partials.",
         "# After copying: add 3-8 // @param annotations, optionally add ONE",
         "# noise or modulation layer.  Do NOT invent new UGen call signatures.",
         "",
     ]
-    for family in SEED_FAMILIES[1:]:  # skip flucoma_template (agent uses target_partials.txt directly)
+    for family in ARCHITECTURE_ORDER:
         code = templates.get(family, ARCHITECTURE_TEMPLATES.get(family, ''))
         lines.append(f"=== {family} ===")
         lines.append(code)
@@ -911,6 +1079,7 @@ def main():
             arch=args.arch,
             max_iterations=max_iterations,
             convergence_threshold=convergence_threshold,
+            partials_path=partials_path,
         )
         # During seeding, do NOT surface base code — each seed is independent.
         # After seeding (or without seeding), surface the best attempt's code.

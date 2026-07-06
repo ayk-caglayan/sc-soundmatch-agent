@@ -12,6 +12,7 @@ Checks:
   4. Env segment times are plain numeric literals (not UGen-scaled)
   5. Env.adsr/perc/linen(...).kr(N) misuse is rejected
   6. At most one doneAction: 2 per synth body
+  7. No left-to-right precedence traps when layering (a + b * env must be parenthesized)
 """
 
 import sys
@@ -225,6 +226,29 @@ def check_envelope_times(code):
     return errors
 
 
+# SC has no operator precedence — `a + b * c` is `(a + b) * c`.
+_LTR_PRECEDENCE_BUG = re.compile(
+    r'\+\s*(?!\()[\w.]+\.(?:ar|kr)\([^)]*\)\s*\*\s*[^;]*\bEnvGen\b'
+)
+
+
+def check_operator_precedence(code):
+    """Flag unparenthesized layered terms that multiply by EnvGen after +."""
+    errors = []
+    for i, line in enumerate(_strip_line_comments(code).splitlines(), 1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith('//'):
+            continue
+        if _LTR_PRECEDENCE_BUG.search(stripped):
+            errors.append(
+                f"Line {i}: SuperCollider has NO operator precedence — "
+                f"`a + b * c` evaluates as `(a + b) * c`. "
+                f"Parenthesize the gated layer: "
+                f"`sig = sig + (WhiteNoise.ar(0.01) * EnvGen.kr(...));`"
+            )
+    return errors
+
+
 def check_class_names(code):
     """Check that all class names (capitalized identifiers used as UGens) exist.
 
@@ -274,6 +298,7 @@ def validate(code):
     errors.extend(check_undeclared_variables(code))
     errors.extend(check_class_names(code))
     errors.extend(check_envelope_times(code))
+    errors.extend(check_operator_precedence(code))
     return errors
 
 

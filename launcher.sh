@@ -5,7 +5,7 @@
 # SuperCollider synthesis.
 #
 # Usage:
-#   ./launcher.sh --target /path/to/audio.wav [--max-iter 85] [--threshold 0.4] [--model MODEL]
+#   ./launcher.sh --target /path/to/audio.wav [--max-iter 91] [--threshold 0.4] [--model MODEL]
 #
 
 set -euo pipefail
@@ -13,14 +13,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Defaults
-MAX_ITER=85
+MAX_ITER=91
 THRESHOLD=0.4
 TIMEOUT_SEC=28800   # 8 hours
 TARGET=""
 TELEGRAM_NOTIFY=true
 MODEL_ID="ollama/qwen3-coder-next:latest"
 OPTIMIZER_BUDGET=30
-SEED_COUNT=4
+SEED_COUNT=10
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -58,11 +58,11 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Arguments:"
             echo "  --target       Path to target audio file (required)"
-            echo "  --max-iter     Maximum refinement iterations (default: 85)"
+            echo "  --max-iter     Maximum refinement iterations (default: 91)"
             echo "  --threshold    Spectral convergence threshold (default: 0.4)"
             echo "  --model        Model id to use (default: ollama/qwen3-coder-next:latest)"
             echo "  --optimizer-budget  Renders per parameter-optimization step (default: 30)"
-            echo "  --seed-count   Number of diverse architecture seeds before hill-climb (default: 4, set 0 to disable)"
+            echo "  --seed-count   Number of diverse architecture seeds before hill-climb (default: 10, set 0 to disable)"
             echo "  --no-telegram  Disable Telegram progress notifications"
             exit 0
             ;;
@@ -138,6 +138,9 @@ case "$MODEL_ID" in
         ;;
     claude-opus-4-6|claude|anthropic/claude-opus-4-6)
         MODEL_ID="anthropic/claude-opus-4-6"
+        ;;
+    claude-haiku-4-5|haiku|anthropic/claude-haiku-4-5)
+        MODEL_ID="anthropic/claude-haiku-4-5"
         ;;
 esac
 
@@ -248,14 +251,13 @@ if ! openclaw models set "$MODEL_ID"; then
 fi
 
 # Start agent in background, then monitor progress and hard-stop at max_iter.
-# On abnormal exit, retry up to 2 times with the same session-id so the agent
-# can resume from where it stopped.
+# Resume until iteration budget is exhausted, convergence, or final_result exists.
 
-RETRY_MAX=2
-RETRY_COUNT=0
+MAX_AGENT_ROUNDS=10
 RUN_START_EPOCH=$(date +%s)
 AGENT_EXIT_CODE=0
 ITERATION_LIMIT_STOP=false
+AGENT_ROUND=0
 
 KICKOFF_MSG="Match the target sound. Your run directory is current_run/. Read current_run/config.txt (note seed_count=${SEED_COUNT} and seed_optimizer_budget=${SEED_OPT_BUDGET}), current_run/target_eval.txt, and current_run/target_partials.txt (FluCoMa analysis with ready-to-use SC templates). Follow AGENTS.md exactly. You have exactly ${MAX_ITER} scored iterations total (${SEED_COUNT} seeds + Phase B + hill-climb). Phase A: produce ${SEED_COUNT} diverse architecture seeds (attempts 1..${SEED_COUNT}), one per family listed in the seeding table, each with a cheap optimizer pass (budget=${SEED_OPT_BUDGET}). Phase B: copy the best seed, run the full optimizer (budget=${OPTIMIZER_BUDGET}), then continue the hill-climb if budget remains. When comparison_N.txt contains MANDATORY FINISH, stop immediately and do the Finish step. Write all files to current_run/. IMPORTANT: When you reach max iterations or convergence, you MUST do the Finish step (copy best attempt to final_result.scd and write report.md)."
 RESUME_MSG="Continue the run per AGENTS.md. Read the latest comparison_N.txt in current_run/ and proceed from there."
@@ -297,7 +299,19 @@ start_monitor() {
 set +e
 
 while true; do
-    if [ "$RETRY_COUNT" -eq 0 ]; then
+  COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+  if [ "$COMPLETED_COMPS" -ge "$MAX_ITER" ]; then
+    break
+  fi
+  if [ -f "$RUN_DIR/final_result.scd" ] && [ -f "$RUN_DIR/report.md" ]; then
+    break
+  fi
+  if [ "$AGENT_ROUND" -ge "$MAX_AGENT_ROUNDS" ]; then
+    echo "[$(date +%H:%M:%S)] Maximum agent rounds ($MAX_AGENT_ROUNDS) reached — stopping."
+    break
+  fi
+
+    if [ "$AGENT_ROUND" -eq 0 ]; then
         AGENT_MSG="$KICKOFF_MSG"
     else
         AGENT_MSG="$RESUME_MSG"
@@ -308,11 +322,11 @@ while true; do
     ELAPSED_SEC=$(( NOW_EPOCH - RUN_START_EPOCH ))
     REMAINING_SEC=$(( TIMEOUT_SEC - ELAPSED_SEC ))
     if [ "$REMAINING_SEC" -le 30 ]; then
-        echo "No remaining time budget for retry — giving up."
+        echo "No remaining time budget for agent resume — giving up."
         break
     fi
 
-    echo "[$(date +%H:%M:%S)] Starting agent (attempt $((RETRY_COUNT + 1))/$((RETRY_MAX + 1)), timeout=${REMAINING_SEC}s)..."
+    echo "[$(date +%H:%M:%S)] Starting agent (round $((AGENT_ROUND + 1))/$MAX_AGENT_ROUNDS, ${COMPLETED_COMPS}/${MAX_ITER} comparisons, timeout=${REMAINING_SEC}s)..."
 
     openclaw agent \
         --agent "$AGENT_ID" \
@@ -334,29 +348,26 @@ while true; do
 
     COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
 
-    # Clean exits, iteration-limit stop, or convergence: stop retrying.
     if [ "$AGENT_EXIT_CODE" -eq 0 ]; then
-        break
+        if [ -f "$RUN_DIR/final_result.scd" ] && [ -f "$RUN_DIR/report.md" ]; then
+            break
+        fi
+        if [ "$COMPLETED_COMPS" -ge "$MAX_ITER" ]; then
+            break
+        fi
     fi
     if [ "$ITERATION_LIMIT_STOP" = true ]; then
         break
     fi
-    if [ -f "$RUN_DIR/final_result.scd" ]; then
+    if [ -f "$RUN_DIR/final_result.scd" ] && [ -f "$RUN_DIR/report.md" ]; then
         break
     fi
-
-    # If all iterations are used up, no point retrying.
     if [ "$COMPLETED_COMPS" -ge "$MAX_ITER" ]; then
         break
     fi
 
-    RETRY_COUNT=$(( RETRY_COUNT + 1 ))
-    if [ "$RETRY_COUNT" -gt "$RETRY_MAX" ]; then
-        echo "[$(date +%H:%M:%S)] Maximum retries ($RETRY_MAX) exhausted — giving up."
-        break
-    fi
-
-    echo "[$(date +%H:%M:%S)] Agent exited with code $AGENT_EXIT_CODE ($COMPLETED_COMPS/$MAX_ITER iterations done) — retrying (attempt $((RETRY_COUNT + 1))/$((RETRY_MAX + 1)))..."
+    AGENT_ROUND=$(( AGENT_ROUND + 1 ))
+    echo "[$(date +%H:%M:%S)] Agent exited (code $AGENT_EXIT_CODE, $COMPLETED_COMPS/$MAX_ITER comparisons) — resuming..."
     sleep 3
 done
 
@@ -373,7 +384,7 @@ if [ "$AGENT_EXIT_CODE" -ne 0 ]; then
     elif [ "$AGENT_EXIT_CODE" -eq 124 ]; then
         FAILURE_REASON="launcher timeout (openclaw agent --timeout $TIMEOUT_SEC)"
     else
-        FAILURE_REASON="openclaw agent exit code $AGENT_EXIT_CODE (after $((RETRY_COUNT)) retries)"
+        FAILURE_REASON="openclaw agent exit code $AGENT_EXIT_CODE (after $AGENT_ROUND resume rounds)"
     fi
     if [ "$RUN_STATUS" != "success" ]; then
         echo "ERROR: OpenClaw agent failed."
@@ -397,7 +408,9 @@ echo "============================================"
 echo "  Run complete: $RUN_DIR"
 echo "============================================"
 
-# Post-run: if agent didn't create final_result.scd, pick the best attempt
+# Post-run: ensure final_result.scd and report.md exist
+python3 "$SCRIPT_DIR/finish_run.py" "$RUN_DIR"
+
 if [ ! -f "$RUN_DIR/final_result.scd" ]; then
     echo "Agent did not create final_result.scd — selecting best attempt..."
     BEST_ATTEMPT=""
