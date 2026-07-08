@@ -1,0 +1,17 @@
+# Strategy
+Match the target sound by evolving architectures through several phases.
+
+# Phases
+1. **Phase A (Seeding)**: Generate 4 seeds using different families (as defined in the task). For each seed, run a short optimization (10 iterations).
+2. **Phase B (Expansion)**: Identify the best seed from Phase A. Take its architecture and run a larger optimization (30 iterations).
+3. **Phase C (Hill Climbing)**: Use the best result from Phase B to perform final fine-tuning.
+
+# Termination
+- Stop if `MANDATORY_FINISH` is detected in any comparison file.
+- Stop if the total budget of 85 iterations is exhausted.
+- Stop if improvement stalls.
+
+# Rules
+- All mutations must be valid according to the architecture constraints.
+- The `target_eval` must be the primary metric for optimization.
+- Follow the `AGENT_INSTRUCTIONS` for mutation logic.

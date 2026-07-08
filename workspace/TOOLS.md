@@ -17,12 +17,12 @@ QT_QPA_PLATFORM=offscreen timeout 20 sclang <file.scd>
 
 ### Python Evaluation Scripts
 
-All scripts are in `/home/ayk/sc_claw_flucoma/`. Use `python3`:
+All scripts are in `/home/ayk/sc-soundmatch-agent/`. Use `python3`:
 
 ```
-python3 /home/ayk/sc_claw_flucoma/evaluate.py <audio.wav> -o <output.txt>
-python3 /home/ayk/sc_claw_flucoma/compare.py <target.wav> <attempt.wav> -o <output.txt>
-python3 /home/ayk/sc_claw_flucoma/wrap_for_recording.py <input.scd>
+python3 /home/ayk/sc-soundmatch-agent/evaluate.py <audio.wav> -o <output.txt>
+python3 /home/ayk/sc-soundmatch-agent/compare.py <target.wav> <attempt.wav> -o <output.txt>
+python3 /home/ayk/sc-soundmatch-agent/wrap_for_recording.py <input.scd>
 ```
 
 ## read — Inspecting Files

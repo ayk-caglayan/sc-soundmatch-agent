@@ -233,8 +233,36 @@ def parse_decomposition_sinusoidal_pct(partials_path):
     return None
 
 
+def parse_target_field(partials_path, field):
+    """Return a float field (e.g. residual_spectral_centroid, fundamental_freq) from target_partials.txt."""
+    if not partials_path or not os.path.exists(partials_path):
+        return None
+    try:
+        for line in Path(partials_path).read_text(encoding='utf-8').splitlines():
+            if line.startswith(field + ':'):
+                val = line.split(':', 1)[1].strip().split()[0]
+                return float(val)
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def parse_target_field_str(partials_path, field):
+    """Return a string field (e.g. recommended_primary_archetype) from target_partials.txt."""
+    if not partials_path or not os.path.exists(partials_path):
+        return None
+    try:
+        for line in Path(partials_path).read_text(encoding='utf-8').splitlines():
+            if line.startswith(field + ':'):
+                return line.split(':', 1)[1].strip()
+    except OSError:
+        pass
+    return None
+
+
 def pick_seed_winner(seed_scores, partials_path=None):
-    """Pick Phase B seed family; prefer flucoma when scores are close."""
+    """Pick Phase B seed family; prefer the analysis-recommended archetype, then
+    flucoma_template, when scores are close."""
     if not seed_scores:
         return None
 
@@ -244,9 +272,23 @@ def pick_seed_winner(seed_scores, partials_path=None):
     if sin_pct is not None and sin_pct > 50.0:
         eps *= 1.5
 
+    # Formant-driven promotion: if the analysis recommends formant_vocal (strong
+    # formants + pitched source), FORCE it as the Phase B base when it was
+    # seeded. The seed score is misleading for formant targets — additive sines
+    # match the sines-stem cheaply but cannot reproduce a formant spectrum, so
+    # flucoma_template wins on seed score while being architecturally wrong.
+    # Forcing formant_vocal gives the recommendation teeth; the optimizer and
+    # hill-climb then develop the model that can actually match the target.
+    recommended = parse_target_field_str(partials_path, 'recommended_primary_archetype')
+    if recommended == 'formant_vocal' and 'formant_vocal' in seed_scores:
+        return 'formant_vocal'
+    if recommended and recommended in seed_scores:
+        eps *= 1.5
+
     close = [fam for fam, sc in seed_scores.items() if sc <= best_score + eps]
-    for pref in PREFERRED_SEED_FAMILIES:
-        if pref in close:
+    preference = [recommended] + PREFERRED_SEED_FAMILIES if recommended else PREFERRED_SEED_FAMILIES
+    for pref in preference:
+        if pref and pref in close:
             return pref
     return min(seed_scores.items(), key=lambda x: x[1])[0]
 
@@ -278,6 +320,11 @@ def apply_seed_winner_tiebreak(progress, partials_path=None):
     progress['best_score'] = seed_scores[winner_fam]
     progress['seed_winner_family'] = winner_fam
     progress['seed_winner_tiebreak'] = winner_fam != raw_best
+    recommended = parse_target_field_str(partials_path, 'recommended_primary_archetype')
+    progress['formant_forced'] = (
+        winner_fam == 'formant_vocal' and recommended == 'formant_vocal'
+        and winner_fam != raw_best
+    )
     return progress
 
 
@@ -426,6 +473,56 @@ def build_seeded_templates(partials):
 def load_audio(path, sr=44100):
     audio, _dur = load_and_preprocess(path, sr=sr, normalize=True, trim_silence=True)
     return audio
+
+
+# Mapping from decomposition stem files to the hybrid-bus layer slot they inform.
+STEM_SLOTS = {
+    'sines.wav': 'sinusoidal',
+    'harmonic.wav': 'sinusoidal',
+    'residual.wav': 'residual',
+    'percussive.wav': 'transient',
+}
+
+
+def score_components(attempt_path, stems_dir, sr=44100):
+    """Score an attempt against each decomposition stem.
+
+    Returns {slot: mfcc_distance} for slots whose stem exists, lower = the
+    attempt reproduces that component better. Used to assign each hybrid-bus
+    layer to the seed archetype that best matches its target component — so the
+    seeds are treated as candidate layers, not tournament competitors.
+    """
+    if not stems_dir or not os.path.isdir(stems_dir):
+        return {}
+    evaluator = SynthesisEvaluator(sample_rate=sr)
+    try:
+        attempt_audio, _ = load_and_preprocess(
+            attempt_path, sr=sr, normalize=True, trim_silence=True)
+    except Exception:
+        return {}
+    if attempt_audio.size == 0:
+        return {}
+
+    scores = {}
+    # Prefer sines.wav; fall back to harmonic.wav if sines absent.
+    seen_slots = set()
+    for fname in ['sines.wav', 'harmonic.wav', 'residual.wav', 'percussive.wav']:
+        stem_path = os.path.join(stems_dir, fname)
+        if not os.path.exists(stem_path):
+            continue
+        slot = STEM_SLOTS[fname]
+        if slot in seen_slots:
+            continue
+        seen_slots.add(slot)
+        try:
+            stem_audio, _ = load_and_preprocess(
+                stem_path, sr=sr, normalize=True, trim_silence=True)
+        except Exception:
+            continue
+        conv = evaluator.compare_with_reference(
+            attempt_audio, stem_audio, category_penalty=0.0)
+        scores[slot] = float(conv.get('mfcc_distance', 1.0))
+    return scores
 
 
 def get_category_direction(cat_name, target_label, current_label):
@@ -599,7 +696,8 @@ def read_run_config(progress_dir):
 
 def update_progress(output_dir, iteration, composite_score, seeded_templates=None,
                     seed_count=0, arch=None, max_iterations=0, convergence_threshold=0.0,
-                    partials_path=None):
+                    partials_path=None, component_scores=None, spec_conv=None,
+                    flatness_distance=None, noise_excess=None):
     """Update progress.json with score history, elitism, and plateau handling.
 
     Plateau detection is based on lack of a NEW best score over the last
@@ -634,7 +732,12 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     progress.setdefault('last_switch_iteration', 0)
     progress.setdefault('attempt_architectures', {})
     progress.setdefault('seed_scores', {})
+    progress.setdefault('component_scores', {})
     progress.setdefault('seed_count', seed_count)
+
+    # Per-component stem scores (sinusoidal/residual/transient) for this seed.
+    if component_scores:
+        progress['component_scores'][str(iteration)] = component_scores
 
     # Keep seed_count up to date if caller provides it.
     if seed_count > 0:
@@ -659,6 +762,16 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     if is_new_best:
         progress['best_score'] = composite_score
         progress['best_attempt'] = iteration
+        # Snapshot the best bus's noise excess so the plateau logic can tell
+        # whether a stall is happening on an over-noisy optimum (don't add more
+        # noise layers) vs a clean one (adding a layer is fine). Directional:
+        # only excess (not deficit) blocks the add-a-layer escape.
+        if noise_excess is not None:
+            progress['best_noise_excess'] = noise_excess
+        if spec_conv is not None:
+            progress['best_spec_conv'] = spec_conv
+        if flatness_distance is not None:
+            progress['best_flatness_distance'] = flatness_distance
 
     progress['iters_since_best'] = iteration - progress['best_attempt']
     progress['delta_vs_best'] = composite_score - progress['best_score']
@@ -686,6 +799,8 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
         apply_seed_winner_tiebreak(progress, partials_path)
         progress['iters_since_best'] = iteration - progress['best_attempt']
         progress['delta_vs_best'] = composite_score - progress['best_score']
+        # Resolve the per-component hybrid layer assignment from seed stem scores.
+        progress['layer_assignment'] = compute_layer_assignment(progress, partials_path)
 
     # Plateau detection is suppressed during seeding.
     plateau = False
@@ -721,6 +836,101 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     return progress
 
 
+def _bus_skeleton(layer_assignment, seed_count):
+    """Emit the Phase B decomposition-bus recipe the agent assembles.
+
+    Each slot names the seed attempt whose signal core becomes that bus layer,
+    gated by a per-layer gain @param. The agent lifts the core from its own
+    validated attempt_N.scd (more reliable than re-embedding template strings).
+    """
+    slot_order = [('sinusoidal', 'layer1', 'g1'),
+                  ('residual', 'layer2', 'g2'),
+                  ('transient', 'layer3', 'g3')]
+    present = [(s, l, g) for s, l, g in slot_order if s in layer_assignment]
+    if not present:
+        return ""
+    next_iter = seed_count + 1
+    lines = [f"=== PHASE B BUS SKELETON (build attempt_{next_iter}.scd) ==="]
+    lines.append("Assemble a decomposition bus: for each slot, lift the signal core")
+    lines.append("(oscillator/resonator/noise block) from the named attempt, rename its")
+    lines.append("final signal var to the layer var, STRIP its Out.ar line, gate with the")
+    lines.append("gain @param. Merge ALL var declarations to the top. Keep doneAction:2")
+    lines.append("on exactly ONE layer (the longest). Preserve each layer's own @param")
+    lines.append("annotations so the ES can tune layer internals AND gains jointly.")
+    lines.append("")
+    for slot, layer, gain in present:
+        info = layer_assignment[slot]
+        lines.append(f"  {slot:<11} layer <- attempt_{info['attempt']} "
+                     f"(family: {info['family']})  gate: {gain}  // @param 0.0 1.0")
+    lines.append("")
+    gains = ', '.join(g for _, _, g in present)
+    layers = ', '.join(l for _, l, _ in present)
+    lines.append(f"var {gains}, {layers}, sig, <merged layer vars>;")
+    for _, _, g in present:
+        lines.append(f"{g} = 0.4; // @param 0.0 1.0")
+    for slot, layer, _ in present:
+        info = layer_assignment[slot]
+        lines.append(f"{layer} = <signal core of attempt_{info['attempt']}>;")
+    terms = ' + '.join(f"({l} * {g})" for _, l, g in present)
+    lines.append(f"sig = {terms};")
+    lines.append("Out.ar(0, (sig * 0.4).dup);")
+    lines.append("")
+    lines.append(f"After writing attempt_{next_iter}.scd, run the FULL optimizer on it")
+    lines.append(f"(budget from config.txt) — the ES tunes the layer gains jointly with")
+    lines.append("each layer's internal params. This is the hybrid start; the hill-climb")
+    lines.append("then refines the bus (swap/fill one slot per iteration).")
+    return "\n".join(lines)
+
+
+def compute_layer_assignment(progress, partials_path=None):
+    """Pick the best seed archetype for each hybrid-bus slot.
+
+    For each slot (sinusoidal/residual/transient), find the seed iteration
+    whose per-component score is lowest and resolve its architecture family.
+    Returns {slot: {'attempt': int, 'family': str, 'score': float}} for slots
+    with data. Seeds are treated as candidate layers, not competitors.
+
+    Formant override: if the analysis recommends formant_vocal (strong formants
+    + pitched source), force the formant_vocal seed into the sinusoidal/body
+    slot — additive sines cannot reproduce a formant spectrum, so the per-stem
+    score (which may favor sines on the sines-stem) must not strand the vocal
+    model out of the bus.
+    """
+    component_scores = progress.get('component_scores', {})
+    arch_map = progress.get('attempt_architectures', {})
+    if not component_scores:
+        return {}
+    slots = set()
+    for scores in component_scores.values():
+        slots.update(scores.keys())
+    assignment = {}
+    for slot in slots:
+        best = None
+        for attempt_str, scores in component_scores.items():
+            if slot not in scores:
+                continue
+            sc = scores[slot]
+            if best is None or sc < best[2]:
+                best = (int(attempt_str), arch_map.get(attempt_str, 'unknown'), sc)
+        if best is not None:
+            assignment[slot] = {'attempt': best[0], 'family': best[1], 'score': best[2]}
+
+    # Formant-driven override for the body slot.
+    recommended = parse_target_field_str(partials_path, 'recommended_primary_archetype')
+    if recommended == 'formant_vocal':
+        for attempt_str, fam in arch_map.items():
+            if fam == 'formant_vocal':
+                prev = assignment.get('sinusoidal')
+                assignment['sinusoidal'] = {
+                    'attempt': int(attempt_str),
+                    'family': 'formant_vocal',
+                    'score': prev['score'] if prev else 0.0,
+                }
+                assignment['_formant_override'] = True
+                break
+    return assignment
+
+
 def _next_untried_architecture(progress):
     """Pick the next architecture family to try on a plateau.
 
@@ -752,12 +962,14 @@ def _next_untried_architecture(progress):
 
 def format_report(convergence, mismatches, top_deltas, prev_code=None,
                   progress=None, best_code=None, seeded_templates=None,
-                  max_iterations=0, convergence_threshold=0.0):
+                  max_iterations=0, convergence_threshold=0.0, partials_path=None):
     lines = []
 
     composite = convergence.get('composite_score', convergence.get('spectral_convergence', 0))
     lines.append("=== CONVERGENCE METRICS ===")
     lines.append(f"composite_score: {composite:.4f}")
+    lines.append(f"mfcc_distance: {convergence.get('mfcc_distance', 0):.4f}  (primary perceptual term)")
+    lines.append(f"mel_distance: {convergence.get('mel_distance', 0):.4f}")
     lines.append(f"spectral_convergence: {convergence.get('spectral_convergence', 0):.4f}")
     lines.append(f"log_spectral_distance: {convergence.get('log_spectral_distance', 0):.4f}")
     lines.append(f"envelope_distance: {convergence.get('envelope_distance', 0):.4f}")
@@ -834,7 +1046,16 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                     f"ALL SEEDS EVALUATED. WINNER: attempt {best_attempt} "
                     f"(family: {winner_fam}, score: {best_score:.4f})."
                 )
-                if progress.get('seed_winner_tiebreak'):
+                if progress.get('formant_forced'):
+                    raw_best = min(seed_scores.items(), key=lambda x: x[1])
+                    lines.append(
+                        f"(FORMANT PROMOTION: {winner_fam} forced as Phase B base over raw-best "
+                        f"{raw_best[0]} ({raw_best[1]:.4f}). The target has strong formants + a "
+                        "pitched source, so additive sines — even if they seed-score better — "
+                        "cannot reproduce it. Develop the formant_vocal body; do NOT fall back to "
+                        "flucoma_template.)"
+                    )
+                elif progress.get('seed_winner_tiebreak'):
                     raw_best = min(seed_scores.items(), key=lambda x: x[1])
                     lines.append(
                         f"(Tiebreak: {winner_fam} preferred over {raw_best[0]} "
@@ -851,6 +1072,28 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                     lines.append("Seed ranking (best to worst):")
                     for rank, (fam, sc) in enumerate(ranked, 1):
                         lines.append(f"  {rank}. {fam}: {sc:.4f}")
+
+                layer_assignment = progress.get('layer_assignment', {})
+                if layer_assignment:
+                    lines.append("")
+                    lines.append("=== COMPONENT LAYER ASSIGNMENT (hybrid bus) ===")
+                    lines.append("Each decomposition slot -> the seed archetype that best")
+                    lines.append("matches that target component. Build the Phase B bus from these.")
+                    for slot in ['sinusoidal', 'residual', 'transient']:
+                        info = layer_assignment.get(slot)
+                        if not info:
+                            continue
+                        lines.append(
+                            f"  {slot}: attempt {info['attempt']} "
+                            f"(family: {info['family']}, component_score: {info['score']:.4f})"
+                        )
+                    lines.append(
+                        "Phase B: sum these layers with a per-layer gain @param "
+                        "(e.g. sig = sinusoidalLayer*g1 + residualLayer*g2 + transientLayer*g3)."
+                    )
+
+                    lines.append("")
+                    lines.append(_bus_skeleton(layer_assignment, effective_seed_count))
             else:
                 next_seed_idx = iteration + 1
                 next_fam = (SEED_FAMILIES[next_seed_idx - 1]
@@ -869,7 +1112,7 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
             if progress.get('plateau_detected'):
                 lines.append(
                     f"No new best for {progress.get('iters_since_best', 0)} iterations. "
-                    "A MANDATORY ARCHITECTURE SWITCH is required (see section below)."
+                    "A MANDATORY ADD-A-LAYER move is required (see section below)."
                 )
             elif progress.get('is_new_best'):
                 lines.append(
@@ -914,6 +1157,44 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
         lines.append(f"{key}: target={t_val:.4f}, current={c_val:.4f}, delta={sign}{abs_delta:.4f}{hint_str}")
     lines.append("")
 
+    # Directional noise warning. spectral_convergence > 1.0 only means the
+    # spectra differ — it is NOT noise-specific (missing formants/brightness read
+    # the same). The noise-specific, DIRECTIONAL signal is noise_excess (attempt
+    # flatter/noisier than target) vs noise_deficit (attempt more tonal/thin).
+    # Warn "reduce noise" only when the attempt is genuinely noisier than the
+    # target; warn "too tonal" in the opposite case. This avoids false-positive
+    # reduce-noise nagging on targets that are themselves noisy (vocals, breath).
+    noise_excess = convergence.get('noise_excess', 0.0)
+    noise_deficit = convergence.get('noise_deficit', 0.0)
+    f0 = parse_target_field(partials_path, 'fundamental_freq')
+    resid_cent = parse_target_field(partials_path, 'residual_spectral_centroid')
+    if noise_excess > 0.12:
+        lines.append("=== OVER-NOISE WARNING (high priority) ===")
+        lines.append(
+            f"noise_excess={noise_excess:.3f}: the attempt is FLATTER (noisier) than the "
+            "target per band — a noise/chaos layer is likely substituting for tonal content "
+            "the synth is missing (often a weak/missing fundamental)."
+        )
+        parts = ["REDUCE noise/chaos amplitudes"]
+        if resid_cent:
+            parts.append(f"reshape the residual toward target centroid {resid_cent:.0f} Hz (HPF/BPF, not low BrownNoise)")
+        if f0:
+            parts.append(f"add a tonal oscillator at F0={f0:.0f} Hz so noise isn't filling for it")
+        lines.append(" -> " + "; ".join(parts) + ".")
+        lines.append("")
+    elif noise_deficit > 0.12:
+        lines.append("=== TOO-TONAL WARNING (high priority) ===")
+        lines.append(
+            f"noise_deficit={noise_deficit:.3f}: the attempt is MORE TONAL/thin than the "
+            "target per band — the target has broadband residual energy the synth lacks. "
+            "Do NOT reduce noise; instead ADD shaped noise/residual."
+        )
+        parts = ["add a shaped noise layer matched to the target residual"]
+        if resid_cent:
+            parts.append(f"target residual centroid {resid_cent:.0f} Hz (LPF/HPF the noise to that shape)")
+        lines.append(" -> " + "; ".join(parts) + ".")
+        lines.append("")
+
     correction = build_correction_prompt(mismatches, top_deltas)
     lines.append("=== CORRECTION PROMPT ===")
     lines.append(correction)
@@ -927,30 +1208,77 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
         arch_code = templates.get(arch_name, ARCHITECTURE_TEMPLATES.get(arch_name, ''))
         tried = progress.get('architectures_tried', [])
         seed_scores = progress.get('seed_scores', {})
-        lines.append("=== PLATEAU DETECTED — MANDATORY ARCHITECTURE SWITCH ===")
-        lines.append(
-            f"No new best for {progress.get('iters_since_best', 0)} iterations "
-            f"(best is attempt {best_attempt} at {best_score:.4f})."
-        )
-        lines.append(f"Architectures tried so far: {', '.join(tried) if tried else 'none'}.")
-        if seed_scores and arch_name in seed_scores:
+        best_spec_conv = progress.get('best_spec_conv', 0.0)
+        best_noise_excess = progress.get('best_noise_excess', 0.0)
+        over_noisy = best_noise_excess > 0.12
+
+        if over_noisy:
+            # The bus is stuck on an over-noisy optimum: adding another layer
+            # would compound the noise (the failure mode this guard prevents).
+            # Force a reduce/reshape step before any additive escape. Directional:
+            # only triggers when the attempt is genuinely noisier than the target,
+            # not when it is too tonal (which wants the opposite fix).
+            f0 = parse_target_field(partials_path, 'fundamental_freq')
+            resid_cent = parse_target_field(partials_path, 'residual_spectral_centroid')
+            lines.append("=== PLATEAU DETECTED — REDUCE NOISE FIRST (do NOT add a layer) ===")
             lines.append(
-                f"Switching to '{arch_name}' (measured seed score: "
-                f"{seed_scores[arch_name]:.4f} — best unexplored seed)."
+                f"No new best for {progress.get('iters_since_best', 0)} iterations "
+                f"(best is attempt {best_attempt} at {best_score:.4f}), AND the best bus is "
+                f"over-noisy (noise_excess={best_noise_excess:.3f} — flatter than target per band)."
             )
-        lines.append("You MUST switch to a fundamentally different synthesis architecture.")
-        lines.append("Do NOT make incremental tweaks. Rewrite from scratch using this template")
-        lines.append("(its frequencies are seeded from the target's dominant partials):")
-        lines.append("")
-        lines.append(f"Architecture: {arch_name}")
-        if arch_code:
-            lines.append(arch_code)
-        lines.append("")
-        lines.append(
-            "If this architecture cannot beat the best score within 2 iterations, "
-            f"revert to the BASE CODE below (attempt {best_attempt}) and try another family."
-        )
-        lines.append("")
+            lines.append("Adding another layer here would compound the noise. Instead, make ONE")
+            lines.append("change that REDUCES wrong-shape noise from the current BASE CODE:")
+            lines.append("  - cut noise/chaos amplitudes (or remove a noise/chaos layer entirely);")
+            if resid_cent:
+                lines.append(f"  - reshape the residual toward the target centroid {resid_cent:.0f} Hz (HPF/BPF, not low BrownNoise);")
+            if f0:
+                lines.append(f"  - add a tonal oscillator at the missing fundamental {f0:.0f} Hz so noise isn't filling for it;")
+            lines.append("  - re-run the optimizer and check the BOUND-PIN warnings are gone.")
+            lines.append("Only once the bus is clean (noise_excess < 0.12) may a later plateau add a layer.")
+            lines.append("")
+            lines.append(
+                "FALLBACK: if you already tried reducing/reshaping noise within the last 2 "
+                "iterations without a new best, do NOT keep nudging noise — the architecture is "
+                "the wrong fit. IGNORE the reduce-noise instruction and instead develop a "
+                "different seed family as a fresh base (the target's formant analysis hints which: "
+                "vocal/formant targets -> formant_vocal or subtractive source/filter). This "
+                "prevents a reduce-noise dead-end from ending the run early."
+            )
+            lines.append("")
+        else:
+            lines.append("=== PLATEAU DETECTED — ADD A LAYER (do NOT restart) ===")
+            lines.append(
+                f"No new best for {progress.get('iters_since_best', 0)} iterations "
+                f"(best is attempt {best_attempt} at {best_score:.4f})."
+            )
+            lines.append(f"Architectures already in the bus / tried: {', '.join(tried) if tried else 'none'}.")
+            if seed_scores and arch_name in seed_scores:
+                lines.append(
+                    f"Adding '{arch_name}' as a new parallel layer (measured seed score: "
+                    f"{seed_scores[arch_name]:.4f} — best unexplored seed)."
+                )
+            lines.append("KEEP your BASE CODE (the current best bus) — do not rewrite it. Add this")
+            lines.append("family's signal core as a NEW parallel layer gated by a fresh gain, then let")
+            lines.append("the optimizer tune the new gain jointly with the rest:")
+            lines.append("  var gNew, newLayer, ...;  // merge vars to top")
+            lines.append("  gNew = 0.3; // @param 0.0 1.0")
+            lines.append("  newLayer = <signal core below>;")
+            lines.append("  sig = sig + (newLayer * gNew);   // parenthesize (rule 14)")
+            lines.append("Escape is now ADDITIVE: you keep the partial match already built and add a")
+            lines.append("strength the current bus lacks — not abandon it for a restart.")
+            lines.append("")
+            lines.append(f"New layer architecture: {arch_name}")
+            lines.append("(frequencies seeded from the target's dominant partials):")
+            lines.append("")
+            if arch_code:
+                lines.append(arch_code)
+            lines.append("")
+            lines.append(
+                "If the new layer's gain collapses to ~0 after optimization (use the prune pass), "
+                f"it added nothing — revert to the BASE CODE below (attempt {best_attempt}) and "
+                "try the next unexplored family."
+            )
+            lines.append("")
 
     # Elitism: surface best code for next attempt, or for final_result copy on finish.
     base_code = best_code if best_code is not None else prev_code
@@ -1025,6 +1353,9 @@ def main():
     parser.add_argument('--dump-templates', metavar='OUTPUT_PATH', default=None,
                         help='Write seed templates for all families to OUTPUT_PATH and exit. '
                              'Use with --partials to seed frequencies from the target.')
+    parser.add_argument('--stems-dir', default=None,
+                        help='Directory of decomposition stems (sines/residual/percussive.wav). '
+                             'Defaults to <progress-dir>/stems. Used for per-component seed scoring.')
     args = parser.parse_args()
 
     if args.dump_templates:
@@ -1072,6 +1403,13 @@ def main():
     best_code = None
     if args.progress_dir and args.iteration > 0:
         composite = convergence.get('composite_score', 0)
+        # Per-component stem scoring during the seeding phase only.
+        component_scores = None
+        stems_dir = args.stems_dir
+        if not stems_dir and args.progress_dir:
+            stems_dir = os.path.join(args.progress_dir, 'stems')
+        if args.seed_count and args.arch and stems_dir and os.path.isdir(stems_dir):
+            component_scores = score_components(args.attempt, stems_dir, sr=args.sample_rate)
         progress = update_progress(
             args.progress_dir, args.iteration, composite,
             seeded_templates=seeded_templates,
@@ -1080,6 +1418,10 @@ def main():
             max_iterations=max_iterations,
             convergence_threshold=convergence_threshold,
             partials_path=partials_path,
+            component_scores=component_scores,
+            spec_conv=convergence.get('spectral_convergence'),
+            flatness_distance=convergence.get('flatness_distance'),
+            noise_excess=convergence.get('noise_excess'),
         )
         # During seeding, do NOT surface base code — each seed is independent.
         # After seeding (or without seeding), surface the best attempt's code.
@@ -1101,7 +1443,8 @@ def main():
                            prev_code=prev_code, progress=progress,
                            best_code=best_code, seeded_templates=seeded_templates,
                            max_iterations=max_iterations,
-                           convergence_threshold=convergence_threshold)
+                           convergence_threshold=convergence_threshold,
+                           partials_path=partials_path)
 
     if args.output:
         with open(args.output, 'w') as f:

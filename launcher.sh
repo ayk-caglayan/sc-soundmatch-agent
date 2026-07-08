@@ -93,16 +93,16 @@ finalize_run() {
         wait "$MONITOR_PID" 2>/dev/null || true
     fi
 
-    FINAL_COMP_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+    FINAL_COMP_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_[0-9]*.txt' 2>/dev/null | wc -l)
     FINAL_ATTEMPT_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'attempt_*.scd' 2>/dev/null | wc -l)
-    FINAL_SCORE=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | sort -V | tail -1 \
+    FINAL_SCORE=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_[0-9]*.txt' 2>/dev/null | sort -V | tail -1 \
         | xargs grep -m1 '^composite_score:\|^spectral_convergence:' 2>/dev/null | awk '{print $2}')
 
     if [ -n "$PREV_DEFAULT_MODEL" ]; then
         openclaw models set "$PREV_DEFAULT_MODEL" >/dev/null 2>&1 || true
     fi
 
-    rm -rf "${WORKSPACE_DIR}/current_run"
+    rm -f "${WORKSPACE_DIR}/current_run"
 
     tg_send "sc_claw_flucoma finished: $TARGET_BASENAME | status=$RUN_STATUS | iterations=$FINAL_COMP_COUNT/$MAX_ITER | attempts=$FINAL_ATTEMPT_COUNT | best=${FINAL_SCORE:-N/A} | reason=$FAILURE_REASON"
 }
@@ -222,13 +222,31 @@ echo "  - Timeout: ${TIMEOUT_SEC}s (8 hours)"
 echo "  - Progress updates every 30s"
 echo "============================================"
 
-# Symlink the run directory into the agent's workspace so the agent can read/write files.
-# The agent's workspace is /home/ayk/sc_claw_flucoma/workspace — it can only access files inside it.
-WORKSPACE_DIR="${SCRIPT_DIR}/workspace"
-rm -rf "${WORKSPACE_DIR}/current_run"
+# Symlink the run directory into the agent's OpenClaw workspace (must match openclaw.json).
+WORKSPACE_DIR=$(openclaw config get agents.list 2>/dev/null | python3 -c "
+import json, sys
+for a in json.load(sys.stdin):
+    if a.get('id') == sys.argv[1]:
+        print(a.get('workspace', ''))
+        break
+" "$AGENT_ID")
+WORKSPACE_DIR="${WORKSPACE_DIR:-${SCRIPT_DIR}/workspace}"
+if [ ! -d "$WORKSPACE_DIR" ]; then
+    echo "Error: agent workspace not found: $WORKSPACE_DIR"
+    echo "Set agents.list workspace for $AGENT_ID in ~/.openclaw/openclaw.json"
+    exit 1
+fi
+if [ -d "${WORKSPACE_DIR}/current_run" ] && [ ! -L "${WORKSPACE_DIR}/current_run" ]; then
+    echo "Warning: removing stale current_run directory at ${WORKSPACE_DIR}/current_run"
+    rm -rf "${WORKSPACE_DIR}/current_run"
+fi
 ln -sfn "$RUN_DIR" "${WORKSPACE_DIR}/current_run"
+if [ ! -f "${WORKSPACE_DIR}/current_run/config.txt" ]; then
+    echo "Error: agent cannot see run files via ${WORKSPACE_DIR}/current_run"
+    exit 1
+fi
 trap finalize_run EXIT
-echo "Linked workspace/current_run -> $RUN_DIR"
+echo "Linked ${WORKSPACE_DIR}/current_run -> $RUN_DIR"
 tg_send "sc_claw_flucoma started: $TARGET_BASENAME | model=$MODEL_ID | max_iter=$MAX_ITER | threshold=$THRESHOLD"
 
 # Clear previous session to prevent context bloat.
@@ -270,7 +288,7 @@ start_monitor() {
         LAST_ATTEMPT_REPORTED=0
         while kill -0 "$AGENT_PID" 2>/dev/null; do
             ATTEMPT_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'attempt_*.scd' 2>/dev/null | wc -l)
-            COMPARISON_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+            COMPARISON_COUNT=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_[0-9]*.txt' 2>/dev/null | wc -l)
 
             if [ "$COMPARISON_COUNT" -ge "$MAX_ITER" ]; then
                 echo "[$(date +%H:%M:%S)] Iteration limit reached ($COMPARISON_COUNT/$MAX_ITER) — stopping agent"
@@ -280,7 +298,7 @@ start_monitor() {
             fi
 
             if [ "$COMPARISON_COUNT" -gt "$LAST_REPORTED" ]; then
-                LATEST_COMP=$(ls "$RUN_DIR"/comparison_*.txt 2>/dev/null | sort -V | tail -1)
+                LATEST_COMP=$(ls "$RUN_DIR"/comparison_[0-9]*.txt 2>/dev/null | sort -V | tail -1)
                 LATEST_SCORE=$(grep -m1 '^composite_score:\|^spectral_convergence:' "$LATEST_COMP" 2>/dev/null | awk '{print $2}')
                 echo "[$(date +%H:%M:%S)] Iteration $COMPARISON_COUNT complete | score=${LATEST_SCORE:-N/A} | threshold=$THRESHOLD | progress=$COMPARISON_COUNT/$MAX_ITER"
                 tg_send "[$TARGET_BASENAME] Iter $COMPARISON_COUNT/$MAX_ITER — composite_score: ${LATEST_SCORE:-N/A} (threshold: $THRESHOLD)"
@@ -299,7 +317,8 @@ start_monitor() {
 set +e
 
 while true; do
-  COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+  COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_[0-9]*.txt' 2>/dev/null | wc -l)
+  COMPS_AT_ROUND_START=$COMPLETED_COMPS
   if [ "$COMPLETED_COMPS" -ge "$MAX_ITER" ]; then
     break
   fi
@@ -346,7 +365,19 @@ while true; do
         ITERATION_LIMIT_STOP=true
     fi
 
-    COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+    COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_[0-9]*.txt' 2>/dev/null | wc -l)
+
+    if [ "$AGENT_EXIT_CODE" -eq 0 ] && [ "$COMPLETED_COMPS" -eq "$COMPS_AT_ROUND_START" ]; then
+        if [ -f "$RUN_DIR/final_result.scd" ] && [ -f "$RUN_DIR/report.md" ] && [ "$COMPLETED_COMPS" -gt 0 ]; then
+            break
+        fi
+        if [ "$COMPLETED_COMPS" -eq 0 ]; then
+            echo "[$(date +%H:%M:%S)] Agent made no scored iterations — stopping (check workspace symlink and AGENTS.md)."
+            FAILURE_REASON="agent produced no comparison_N.txt files"
+            RUN_STATUS="failed"
+            break
+        fi
+    fi
 
     if [ "$AGENT_EXIT_CODE" -eq 0 ]; then
         if [ -f "$RUN_DIR/final_result.scd" ] && [ -f "$RUN_DIR/report.md" ]; then
@@ -375,7 +406,7 @@ set -e
 
 if [ "$AGENT_EXIT_CODE" -ne 0 ]; then
     if [ "$ITERATION_LIMIT_STOP" = true ]; then
-        COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+        COMPLETED_COMPS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_[0-9]*.txt' 2>/dev/null | wc -l)
         if [ "$COMPLETED_COMPS" -ge "$MAX_ITER" ]; then
             RUN_STATUS="success"
             FAILURE_REASON="iteration limit reached (agent stopped)"
@@ -392,11 +423,13 @@ if [ "$AGENT_EXIT_CODE" -ne 0 ]; then
         echo "  Reason:    $FAILURE_REASON"
     fi
 else
-    RUN_STATUS="success"
-    FAILURE_REASON="none"
+    if [ "$RUN_STATUS" != "failed" ]; then
+        RUN_STATUS="success"
+        FAILURE_REASON="none"
+    fi
 fi
 
-COMPLETED_ITERATIONS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_*.txt' 2>/dev/null | wc -l)
+COMPLETED_ITERATIONS=$(find "$RUN_DIR" -maxdepth 1 -name 'comparison_[0-9]*.txt' 2>/dev/null | wc -l)
 if [ "$RUN_STATUS" = "success" ] && [ "$COMPLETED_ITERATIONS" -eq 0 ]; then
     RUN_STATUS="failed"
     FAILURE_REASON="agent exited without completing any iteration"
@@ -415,7 +448,7 @@ if [ ! -f "$RUN_DIR/final_result.scd" ]; then
     echo "Agent did not create final_result.scd — selecting best attempt..."
     BEST_ATTEMPT=""
     BEST_SCORE=""
-    for comp_file in "$RUN_DIR"/comparison_*.txt; do
+    for comp_file in "$RUN_DIR"/comparison_[0-9]*.txt; do
         [ -f "$comp_file" ] || continue
         N=$(basename "$comp_file" | sed 's/comparison_\([0-9]*\)\.txt/\1/')
         SCORE=$(grep -m1 '^composite_score:\|^spectral_convergence:' "$comp_file" 2>/dev/null | awk '{print $2}')
@@ -455,7 +488,7 @@ fi
 # Print convergence summary
 echo ""
 echo "=== Convergence History ==="
-for comp_file in "$RUN_DIR"/comparison_*.txt; do
+for comp_file in "$RUN_DIR"/comparison_[0-9]*.txt; do
     [ -f "$comp_file" ] || continue
     N=$(basename "$comp_file" | sed 's/comparison_\([0-9]*\)\.txt/\1/')
     CSCORE=$(grep '^composite_score:' "$comp_file" 2>/dev/null | awk '{print $2}')

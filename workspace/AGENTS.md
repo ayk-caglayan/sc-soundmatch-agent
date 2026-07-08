@@ -88,7 +88,7 @@ Write synthesis code to `current_run/attempt_N.scd` using the architecture for s
 **Step 1b: Pre-Validate**
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/pre_validate.py current_run/attempt_N.scd
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/pre_validate.py current_run/attempt_N.scd
 ```
 
 **If it fails:** fix and re-run. Do NOT proceed to Step 2.
@@ -96,7 +96,7 @@ exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/pre_validate.py 
 **Step 2: Wrap and Validate**
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/wrap_for_recording.py current_run/attempt_N.scd -d <target_duration>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/wrap_for_recording.py current_run/attempt_N.scd -d <target_duration>
 ```
 
 **Step 3: Synthesize Audio**
@@ -110,19 +110,19 @@ Verify: `exec ls -la current_run/attempt_N.wav`
 **Step 3b: Optimize Parameters (cheap — use `seed_optimizer_budget`)**
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <seed_optimizer_budget>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <seed_optimizer_budget>
 ```
 
 **Step 4: Evaluate**
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/evaluate.py current_run/attempt_N.wav -o current_run/attempt_N_eval.txt
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/evaluate.py current_run/attempt_N.wav -o current_run/attempt_N_eval.txt
 ```
 
 **Step 5: Compare**
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations> --arch <family_name>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations> --arch <family_name>
 ```
 
 Replace `N`, `<seed_count>`, and `<family_name>` with the actual values (e.g. `--seed-count 10 --arch granular`).
@@ -133,31 +133,67 @@ Read `current_run/comparison_N.txt` — the SEEDING PHASE STATUS section tells y
 
 ---
 
-## Phase B: Develop the Winner (N = seed_count+1 onward)
+## Phase B: Build the Hybrid Bus (N = seed_count+1 onward)
 
-**Step B1: Identify the winner**
+The seeding phase is NOT a tournament — the seeds are **candidate layers**. The
+final-seed comparison report contains a **COMPONENT LAYER ASSIGNMENT** and a
+**PHASE B BUS SKELETON**: each decomposition slot (sinusoidal / residual /
+transient) is assigned to the seed archetype that best matches that target
+component (scored against the FluCoMa stems). Phase B assembles them into one
+hybrid bus, which is how the system escapes being stuck on a single model.
 
-Read `current_run/comparison_<seed_count>.txt`. The SEEDING PHASE STATUS section names the winning attempt (lowest score) and its architecture family. When raw scores are within 0.02, `flucoma_template` is preferred (tiebreak — see `compare.py`).
+**Step B1: Read the layer assignment**
 
-**Step B2: Full-budget optimization of the winner**
+Read `current_run/comparison_<seed_count>.txt`. The COMPONENT LAYER ASSIGNMENT
+names, for each slot, the attempt + family to use. The PHASE B BUS SKELETON
+gives the exact recipe.
 
-Copy the winning seed as your Phase B base:
+**Step B2: Assemble the bus as attempt_{seed_count+1}.scd**
+
+Following the BUS SKELETON, lift each named attempt's signal core into its slot,
+gate each with a per-layer gain `// @param 0.0 1.0`, sum them, and end with
+`Out.ar`. Rules:
+
+- Merge ALL `var` declarations to the top (each layer brings its own).
+- Strip every layer's `Out.ar` line — only the final bus has one.
+- Keep `doneAction: 2` on exactly ONE layer (the longest-sustaining).
+- Preserve each layer's internal `// @param` annotations; add the 3 layer gains.
+- Parenthesize every gated layer (rule 14): `(layerN * gN)`.
+
+Then run pre_validate → wrap → render → **full-budget optimizer**:
 ```
-exec cp current_run/attempt_<best_attempt>.scd current_run/attempt_<seed_count+1>.scd
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_<seed_count+1>.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget>
 ```
 
-Run the full-budget optimizer on it:
+The ES tunes the layer gains **jointly** with each layer's internal params —
+this is the core advantage over single-model hill-climbing. Then run the
+mute-and-prune pass to drop any layer that isn't pulling its weight:
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/optimize_params.py current_run/attempt_<seed_count+1>.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_<seed_count+1>.scd --target current_run/target.wav -d <target_duration> --budget 0 --prune-budget 12
 ```
+If the prune pass flags a layer as PRUNABLE, remove that layer from the bus on
+the next hill-climb iteration (fewer layers = a more idiomatic patch and more
+optimizer budget for the layers that matter). Then evaluate and compare
+(Steps 4–5) with iteration N = seed_count+1, passing `--seed-count <seed_count>
+--max-iter <max_iterations>` but NOT `--arch`. The report switches to HILL-CLIMB
+mode and the bus becomes the new BASE CODE.
 
-Then evaluate and compare (Steps 4–5) using iteration N = seed_count+1. Pass `--seed-count <seed_count> --max-iter <max_iterations>` but NOT `--arch` (this is now a hill-climb iteration). The comparison report will switch to HILL-CLIMB mode.
+**Fallback:** if a named layer's attempt file is missing or you cannot assemble
+a valid bus within 2 tries, fall back to copying the single best seed (the
+winner named in SEEDING PHASE STATUS) as attempt_{seed_count+1}.scd and proceed
+— do not stall the whole run on assembly.
 
-**When `max_iterations == seed_count + 1`:** Phase B is your **final** iteration. After comparing attempt_{K+1}, if `comparison_N.txt` contains `=== MANDATORY FINISH ===`, go directly to **Finish** — do not start a hill-climb.
+**When `max_iterations == seed_count + 1`:** Phase B is your **final** iteration.
+After comparing attempt_{K+1}, if `comparison_N.txt` contains
+`=== MANDATORY FINISH ===`, go directly to **Finish** — do not start a hill-climb.
 
-**Step B3: Continue the hill-climb**
+**Step B3: Continue the hill-climb on the bus**
 
-From N = seed_count+2 onward, follow the standard Loop below. The BASE CODE FOR NEXT ATTEMPT section in each comparison report always points to the best attempt so far.
+From N = seed_count+2 onward, follow the standard Loop below. The BASE CODE FOR
+NEXT ATTEMPT is the best bus so far. Each hill-climb iteration makes ONE
+targeted change to the bus: swap/fill one slot's archetype, adjust a layer's
+internal structure, or add/remove a layer (see MUTE-AND-PRUNE and the plateau
+"add a layer" rule).
 
 ---
 
@@ -213,7 +249,7 @@ Write synthesis code to `current_run/attempt_N.scd`.
     - `cutoff = 3000;   // @param 800 8000 log`  (frequencies/times: use `log`)
     - `noiseLevel = 0.05;  // @param 0.005 0.2 log`
     - `modIndex = 3;    // @param 0.5 8.0`  (linear range)
-    Choose parameters that meaningfully affect the audio (filter cutoffs, noise/amp levels, modulation depths/rates, decay times). Keep `Env` *segment time* literals un-annotated (envelope timing rules above still apply) — annotate amplitudes, cutoffs, and modulation values instead. Do NOT annotate the partial frequencies you extracted from the target.
+    Choose parameters that meaningfully affect the audio (filter cutoffs, noise/amp levels, modulation depths/rates, decay times). Keep `Env` *segment time* literals un-annotated (envelope timing rules above still apply) — annotate amplitudes, cutoffs, and modulation values instead. You MAY annotate a partial frequency with a NARROW log range (±2-3% around the FluCoMa estimate) so the optimizer can fine-tune pitch: `freq = 354.2; // @param 345 364 log`. Do NOT widen frequency ranges beyond ±3% — large pitch jumps read as wrong notes, not refinement.
 
 **IDIOMATIC SC PATTERNS — use these to build richer structures:**
 
@@ -229,7 +265,7 @@ Write synthesis code to `current_run/attempt_N.scd`.
 ### Step 1b: Pre-Validate
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/pre_validate.py current_run/attempt_N.scd
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/pre_validate.py current_run/attempt_N.scd
 ```
 
 This is a fast (<100ms) check that catches:
@@ -248,7 +284,7 @@ This is a fast (<100ms) check that catches:
 Read `target_duration` from `current_run/config.txt`, then run:
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/wrap_for_recording.py current_run/attempt_N.scd -d <target_duration>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/wrap_for_recording.py current_run/attempt_N.scd -d <target_duration>
 ```
 
 Replace `<target_duration>` with the value from config.txt (e.g. `-d 2.5`). This ensures the render matches the target length rather than defaulting to 10 seconds.
@@ -276,7 +312,7 @@ The baseline render proves your structure works. Now let the numeric optimizer t
 Use `optimizer_budget` from `config.txt` and `target_duration` for `-d`:
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget>
 ```
 
 This is your numeric search — do NOT hand-tune the annotated parameters yourself. Spend your own edits on structure (oscillators, envelopes, architecture) and let this step handle the numbers. If it prints "No @param annotations found", go back to Step 1 and add 3–8 `// @param` annotations, then redo Steps 1b–3b.
@@ -284,13 +320,13 @@ This is your numeric search — do NOT hand-tune the annotated parameters yourse
 ### Step 4: Evaluate
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/evaluate.py current_run/attempt_N.wav -o current_run/attempt_N_eval.txt
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/evaluate.py current_run/attempt_N.wav -o current_run/attempt_N_eval.txt
 ```
 
 ### Step 5: Compare
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc_claw_flucoma/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations>
 ```
 
 Replace `N`, `<seed_count>`, and `<max_iterations>` with the actual values from `config.txt`.
@@ -326,11 +362,11 @@ The comparison report drives a strict hill-climb. Read these sections in order:
 
 Always parenthesize gated layers (rule 14). Hybrid moves count as your one structural change for that iteration.
 
-**Plateau rule — mandatory architecture switch:**
+**Plateau rule — mandatory ADD-A-LAYER move:**
 
-The comparison output detects plateaus automatically (no NEW best score for several hill-climb iterations) and includes a PLATEAU DETECTED section. The switch target is the **best-scoring unexplored seed family** (data-driven, from the seeding phase), or the next item in the static architecture list if no seed data is available. The PLATEAU DETECTED section includes the recommended architecture name and a ready-to-use template seeded with the target's dominant partials.
+The comparison output detects plateaus automatically (no NEW best score for several hill-climb iterations) and includes a PLATEAU DETECTED — ADD A LAYER section. The layer to add is the **best-scoring unexplored seed family** (data-driven, from the seeding phase), or the next item in the static architecture list if no seed data is available. The section includes the recommended architecture name and a ready-to-use template seeded with the target's dominant partials.
 
-When you see this section, you MUST use the provided template as your new starting point (add `// @param` annotations to it before Step 3b). After a switch you get a short grace window; if the new architecture cannot beat the best within 2 iterations, revert to the BASE CODE and try the next unexplored seed family.
+When you see this section, you MUST **add** that family's signal core as a NEW parallel layer on your current best bus (the BASE CODE), gated by a fresh `gNew` `// @param 0.0 1.0` — `sig = sig + (newLayer * gNew)`. You do NOT rewrite the bus or discard the partial match already built. Add `// @param` annotations to the new layer before Step 3b, then run the optimizer so the ES tunes the new gain jointly with the existing params. After the move you get a short grace window; if the new layer's gain collapses to ~0 (run the prune pass — `--prune-budget 12`), it added nothing: revert to the BASE CODE and try the next unexplored seed family.
 
 **Architecture families (matching `SEED_FAMILIES` / `ARCHITECTURE_ORDER` in `compare.py`):**
 
@@ -353,6 +389,19 @@ All 10 families are evaluated during the seeding phase (default `seed_count=10`)
 
 **You MUST complete this step before ending.**
 
+**When you may Finish — ONLY these three triggers:**
+1. `comparison_N.txt` contains `=== MANDATORY FINISH ===` (this fires when `N >= max_iterations` or `composite_score < convergence_threshold`), OR
+2. `composite_score < convergence_threshold` (read from the comparison), OR
+3. `N >= max_iterations`.
+
+**When you may NOT Finish — keep iterating:**
+- A plateau (PLATEAU DETECTED — ADD A LAYER / REDUCE NOISE FIRST) is NOT a reason to stop. It is an instruction for the *next* attempt. Execute it and continue.
+- "Local optimum reached", "unlikely to reach threshold", "stuck", or any self-assessment of slow progress is NOT a reason to stop. You have a large iteration budget (up to `max_iterations`); use it. A run that stops at N=21 of 91 has wasted 70 attempts.
+- Bound-pin warnings, OVER-NOISE warnings, or TOOLS-TONAL warnings are NOT reasons to stop. They tell you what to change on the next attempt.
+- If reduce-noise or add-a-layer hasn't helped after 2 tries, use the FALLBACK (develop a different seed family) — do NOT conclude the run is over.
+
+If none of the three Finish triggers is met, you MUST write the next attempt. Do not write `final_result.scd` or `report.md` until a trigger fires.
+
 1. Copy best attempt (the one with the lowest `composite_score`):
    ```
    exec cp current_run/attempt_N.scd current_run/final_result.scd
@@ -371,4 +420,6 @@ All 10 families are evaluated during the seeding phase (default `seed_count=10`)
 - ALWAYS use the exact commands shown above.
 - During Phase A (seeding), ALWAYS pass `--seed-count <seed_count> --max-iter <max_iterations> --arch <family_name>` to compare.py.
 - During Phase B and the hill-climb, ALWAYS pass `--seed-count <seed_count> --max-iter <max_iterations>` (without `--arch`) to compare.py.
+- During seeding, ALWAYS pass `--stems-dir current_run/stems` to compare.py so per-component layer scores are computed.
+- Do NOT stop early. Only the three Finish triggers above end the run.
 - When `=== MANDATORY FINISH ===` appears in any comparison report, STOP and complete the Finish step before ending.

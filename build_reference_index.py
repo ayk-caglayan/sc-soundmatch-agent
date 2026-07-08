@@ -12,7 +12,7 @@ Usage:
 Defaults:
     --audio-desc  /home/ayk/sc_code2sound/scdoc_batch/audio_desc/
     --sc-code     /home/ayk/sc_code2sound/scdoc_batch/sc_code/
-    --output      /home/ayk/sc_claw_flucoma/workspace/reference_examples/
+    --output      /home/ayk/sc-soundmatch-agent/workspace/reference_examples/
 """
 
 import argparse
@@ -23,7 +23,7 @@ from pathlib import Path
 
 AUDIO_DESC_DIR = Path('/home/ayk/sc_code2sound/scdoc_batch/audio_desc')
 SC_CODE_DIR    = Path('/home/ayk/sc_code2sound/scdoc_batch/sc_code')
-OUTPUT_DIR     = Path('/home/ayk/sc_claw_flucoma/workspace/reference_examples')
+OUTPUT_DIR     = Path('/home/ayk/sc-soundmatch-agent/workspace/reference_examples')
 
 CATEGORY_KEYS = [
     'brightness',

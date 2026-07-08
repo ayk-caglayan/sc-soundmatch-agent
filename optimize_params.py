@@ -4,10 +4,12 @@ Numeric parameter optimizer for SuperCollider synthesis attempts.
 
 The LLM agent proposes the *structure* of a synth; this script tunes the
 *numbers*. It reads `// @param lo hi [log]` annotations from an attempt .scd,
-then runs coordinate descent — rendering each candidate to audio (deterministic
-NRT) and scoring it against the target — to find parameter values that minimize
-the composite score. This guarantees monotone (non-increasing) improvement
-within a fixed architecture, which the LLM-only loop could not provide.
+then runs a (1+lambda) evolution strategy — rendering each candidate to audio
+(deterministic NRT) and scoring it against the target — to find parameter
+values that minimize the composite score. The ES moves all params jointly
+(diagonal search with 1/5 step-size adaptation) and is monotone: the parent is
+only replaced by a strictly better offspring, so the score never regresses
+within a fixed architecture.
 
 Annotation convention (the tunable is the numeric literal after `=`):
 
@@ -34,6 +36,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import numpy as np
 
 from synthesis_evaluator_fixed import SynthesisEvaluator, load_and_preprocess
 from compare import compute_category_penalty
@@ -101,14 +105,74 @@ def apply_values(base_lines, params, values):
     return '\n'.join(lines)
 
 
-def step_value(p, current, direction, frac):
-    """Move `current` by `frac` of the (log) range in `direction` (+/-1)."""
+def _perturb(p, current, sigma, rng):
+    """Gaussian perturbation of one param, scaled by its (log) range."""
     if p.log:
-        lo_l, hi_l, cur_l = math.log(p.lo), math.log(p.hi), math.log(max(current, p.lo))
-        nxt = math.exp(cur_l + direction * frac * (hi_l - lo_l))
+        span = math.log(p.hi) - math.log(p.lo)
+        nxt = math.exp(math.log(max(current, p.lo)) + sigma * span * rng.standard_normal())
     else:
-        nxt = current + direction * frac * (p.hi - p.lo)
+        span = p.hi - p.lo
+        nxt = current + sigma * span * rng.standard_normal()
     return p.clamp(nxt)
+
+
+def evolution_strategy(base_lines, params, scorer, budget, lam=8,
+                       init_sigma=0.25, log=print):
+    """(1+lambda)-ES with Rechenberg 1/5 step-size adaptation.
+
+    Replaces coordinate descent so the search moves JOINTLY across all params
+    (diagonal moves), escaping the axis-aligned grooves coordinate descent
+    stalls in — essential once the synth has coupled layer gains. Monotone:
+    the parent is only replaced by a strictly better offspring, so the score
+    never regresses within a fixed architecture.
+
+    ponytail: ceiling is full CMA-ES (adapts the covariance matrix, not just a
+    global step) — `pip install cma` and swap this function if joint directions
+    matter more than joint step size. The ES here captures the main benefit
+    (diagonal search + step adaptation) in ~40 lines with no new dependency.
+    """
+    rng = np.random.default_rng(0)
+    parent = [p.clamp(p.init) for p in params]
+    best_score = scorer.score(apply_values(base_lines, params, parent))
+    budget -= 1
+    log(f"  baseline score: {best_score:.4f} (renders left: {budget})")
+    trajectory = [(list(parent), best_score)]
+
+    sigma = init_sigma
+    success_window = []
+    generation = 0
+
+    while budget >= lam and budget > 0:
+        offspring = []
+        for _ in range(lam):
+            cand = [_perturb(p, parent[i], sigma, rng) for i, p in enumerate(params)]
+            s = scorer.score(apply_values(base_lines, params, cand))
+            budget -= 1
+            offspring.append((s, cand))
+        offspring.sort(key=lambda x: x[0])
+        best_off_score, best_off = offspring[0]
+
+        improved = best_off_score < best_score - 1e-5
+        success_window.append(1 if improved else 0)
+        if improved:
+            parent = best_off
+            best_score = best_off_score
+            trajectory.append((list(parent), best_score))
+            log(f"  gen {generation}: sigma {sigma:.3f} | score {best_score:.4f} "
+                f"| renders left: {budget}")
+
+        # Rechenberg 1/5 rule: adapt sigma every ~lam evaluations.
+        if len(success_window) >= lam:
+            success_rate = sum(success_window) / len(success_window)
+            if success_rate > 0.20:
+                sigma *= 1.2
+            else:
+                sigma *= 0.85
+            sigma = max(sigma, 1e-3)
+            success_window = []
+        generation += 1
+
+    return parent, best_score, trajectory
 
 
 class Scorer:
@@ -174,41 +238,67 @@ class Scorer:
         return conv['composite_score']
 
 
-def coordinate_descent(base_lines, params, scorer, budget, start_frac=0.3,
-                       min_frac=0.02, log=print):
-    """Greedy coordinate descent over param values. Returns (values, score)."""
-    values = [p.clamp(p.init) for p in params]
-    best_score = scorer.score(apply_values(base_lines, params, values))
-    budget -= 1
-    log(f"  baseline score: {best_score:.4f} (renders left: {budget})")
-    trajectory = [(list(values), best_score)]
+def prune_layers(base_lines, params, values, best_score, scorer, budget, log=print):
+    """Mute each layer-gain param in turn; flag non-contributing layers.
 
-    frac = start_frac
-    while frac >= min_frac and budget > 0:
-        improved = False
-        for i, p in enumerate(params):
-            if budget <= 0:
-                break
-            for direction in (1, -1):
-                if budget <= 0:
-                    break
-                cand = list(values)
-                cand[i] = step_value(p, values[i], direction, frac)
-                if cand[i] == values[i]:
-                    continue
-                s = scorer.score(apply_values(base_lines, params, cand))
-                budget -= 1
-                if s < best_score - 1e-5:
-                    best_score = s
-                    values = cand
-                    improved = True
-                    trajectory.append((list(values), best_score))
-                    log(f"  param {i} -> {_fmt(cand[i])} | score {best_score:.4f} "
-                        f"| step {frac:.3f} | renders left: {budget}")
-                    break  # accept and move to next param
-        if not improved:
-            frac *= 0.5
-    return values, best_score, trajectory
+    A layer gain is a @param with range ~[0, 1] (the bus-skeleton convention).
+    Setting it to 0 mutes that layer. If the score does not get worse, the layer
+    is prunable — the agent should drop it on the next iteration to keep the
+    patch idiomatic and free the optimizer's budget for the layers that matter.
+
+    Returns a list of (param_index, muted_score) for prunable layers.
+    """
+    gain_idx = [i for i, p in enumerate(params)
+                if p.lo < 0.01 and abs(p.hi - 1.0) < 0.01]
+    if len(gain_idx) < 2 or budget <= 0:
+        return []
+    prunable = []
+    for i in gain_idx:
+        if budget <= 0:
+            break
+        cand = list(values)
+        cand[i] = 0.0
+        s = scorer.score(apply_values(base_lines, params, cand))
+        budget -= 1
+        verdict = 'PRUNABLE' if s <= best_score + 1e-3 else 'keeps'
+        log(f"  mute param {i} -> score {s:.4f} ({verdict}, best={best_score:.4f})")
+        if s <= best_score + 1e-3:
+            prunable.append((i, s))
+    return prunable
+
+
+def detect_bound_pins(params, values, base_lines, tol=0.02):
+    """Flag params pinned at their range min/max after optimization.
+
+    A noise/amp parameter stuck at its boundary is the signature of metric
+    gaming — the optimizer wants more (or less) of it than the allowed range
+    permits, usually because it lowers MFCC by adding wrong-shape noise. Surfacing
+    this makes the system *realize* the noise instead of silently maxing it.
+    Returns a list of human-readable warning strings.
+    """
+    pins = []
+    for i, p in enumerate(params):
+        v = values[i]
+        span = p.hi - p.lo
+        if span <= 0:
+            continue
+        if v >= p.hi - tol * span:
+            where = 'MAX'
+        elif v <= p.lo + tol * span:
+            where = 'MIN'
+        else:
+            continue
+        # Extract the variable name from the line (token before '=').
+        code_part = base_lines[p.line_idx].split('//', 1)[0]
+        lhs = code_part.split('=', 1)[0].strip()
+        var = lhs.split()[-1] if lhs.split() else f'param{i}'
+        pins.append(
+            f"  {var} = {_fmt(v)} pinned at {where} of [{_fmt(p.lo)}, {_fmt(p.hi)}] "
+            f"(line {p.line_idx + 1}) — likely metric gaming; "
+            f"{'too much of this source — consider reducing the range max or removing the layer'
+            if where == 'MAX' else 'this source is being suppressed — consider removing the layer'}"
+        )
+    return pins
 
 
 def main():
@@ -219,6 +309,9 @@ def main():
                         help='Render duration in seconds (match target_duration)')
     parser.add_argument('--budget', type=int, default=30,
                         help='Max number of renders (default: 30)')
+    parser.add_argument('--prune-budget', type=int, default=0,
+                        help='Extra renders for the mute-and-prune pass (0 = skip). '
+                             'Run after Phase B bus optimization to drop non-contributing layers.')
     parser.add_argument('--sample-rate', type=int, default=44100)
     args = parser.parse_args()
 
@@ -247,9 +340,30 @@ def main():
 
     scorer = Scorer(args.target, duration=args.duration, sr=args.sample_rate)
     try:
-        values, best_score, trajectory = coordinate_descent(
+        values, best_score, trajectory = evolution_strategy(
             base_lines, params, scorer, args.budget
         )
+
+        # Optional mute-and-prune pass: drop non-contributing bus layers.
+        prune_report = []
+        if args.prune_budget > 0:
+            prunable = prune_layers(base_lines, params, values, best_score,
+                                    scorer, args.prune_budget)
+            if prunable:
+                prune_report.append("Prunable layers (mute did not worsen score):")
+                for i, s in prunable:
+                    prune_report.append(
+                        f"  param {i} (line {params[i].line_idx + 1}): "
+                        f"muted score {s:.4f} -> DROP this layer next iteration"
+                    )
+            else:
+                idxs = [i for i, p in enumerate(params)
+                        if p.lo < 0.01 and abs(p.hi - 1.0) < 0.01]
+                if idxs:
+                    prune_report.append("All layer gains contribute — none prunable.")
+
+        # Detect params pinned at range bounds — a metric-gaming signal.
+        pin_warnings = detect_bound_pins(params, values, base_lines)
 
         best_code = apply_values(base_lines, params, values)
 
@@ -282,12 +396,24 @@ def main():
         log_lines.append("Improvement trajectory (score):")
         for _vals, sc in trajectory:
             log_lines.append(f"  {sc:.4f}")
+        if prune_report:
+            log_lines.append("")
+            log_lines.extend(prune_report)
+        if pin_warnings:
+            log_lines.append("")
+            log_lines.append("BOUND-PIN WARNINGS (params stuck at range edge — likely metric gaming):")
+            log_lines.extend(pin_warnings)
         log_path.write_text('\n'.join(log_lines), encoding='utf-8')
 
         print(f"Optimization complete: composite_score {trajectory[0][1]:.4f} "
               f"-> {best_score:.4f} over {scorer.renders} renders.")
         print(f"Optimized code written to {attempt_path}")
         print(f"Optimized audio rendered to {attempt_path.with_suffix('.wav')}")
+        if prune_report:
+            print("\n".join(prune_report))
+        if pin_warnings:
+            print("BOUND-PIN WARNINGS (params stuck at range edge — likely metric gaming):")
+            print("\n".join(pin_warnings))
     finally:
         scorer.cleanup()
 

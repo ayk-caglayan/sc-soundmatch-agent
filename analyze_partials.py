@@ -116,8 +116,13 @@ def analyze_partials(source_path, n_peaks=10, sr=44100):
     return partials
 
 
-def analyze_decomposition(source_path, sr=44100):
-    """Run fluid-sines and fluid-hpss, return energy ratios."""
+def analyze_decomposition(source_path, sr=44100, stems_dir=None):
+    """Run fluid-sines and fluid-hpss, return energy ratios.
+
+    If ``stems_dir`` is given, the sines/residual/harmonic/percussive stems are
+    written there so downstream steps can score each synthesis archetype against
+    the component it is supposed to match (per-component hybrid layering).
+    """
     info = {}
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -143,6 +148,11 @@ def analyze_decomposition(source_path, sr=44100):
                 sines = sines.mean(axis=1)
             if resid.ndim > 1:
                 resid = resid.mean(axis=1)
+
+            if stems_dir:
+                os.makedirs(stems_dir, exist_ok=True)
+                sf.write(os.path.join(stems_dir, "sines.wav"), sines, sr)
+                sf.write(os.path.join(stems_dir, "residual.wav"), resid, sr)
 
             info['sine_rms'] = float(np.sqrt(np.mean(sines ** 2)))
             info['resid_rms'] = float(np.sqrt(np.mean(resid ** 2)))
@@ -202,7 +212,191 @@ def analyze_decomposition(source_path, sr=44100):
             info['harm_pct'] = float(np.sqrt(np.mean(harm ** 2)) / src_rms * 100) if src_rms > 0 else 0
             info['perc_pct'] = float(np.sqrt(np.mean(perc ** 2)) / src_rms * 100) if src_rms > 0 else 0
 
+            if stems_dir:
+                sf.write(os.path.join(stems_dir, "harmonic.wav"), harm, sr)
+                sf.write(os.path.join(stems_dir, "percussive.wav"), perc, sr)
+
     return info
+
+
+def estimate_f0(source_path, sr=44100, fmin=60.0, fmax=2000.0):
+    """Estimate fundamental frequency via librosa.yin.
+
+    Returns (f0_hz or None, harmonicity_ratio in 0..1). Harmonicity is the
+    fraction of frames YIN reports as voiced (finite f0 above the threshold).
+    """
+    audio, file_sr = sf.read(source_path)
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    if file_sr != sr:
+        audio = librosa.resample(audio, orig_sr=file_sr, target_sr=sr)
+    if audio.size < 4 * 2048:
+        return None, 0.0
+    f0 = librosa.yin(audio, fmin=fmin, fmax=fmax, sr=sr,
+                     frame_length=2048, hop_length=512)
+    voiced = f0[np.isfinite(f0)]
+    if voiced.size == 0:
+        return None, 0.0
+    harmonicity = float(voiced.size / f0.size)
+    f0_med = float(np.median(voiced))
+    return f0_med, harmonicity
+
+
+def compute_inharmonicity(partials, f0):
+    """Mean relative deviation of partials from the nearest harmonic of f0.
+
+    Returns a float in 0..~0.3 (0 = perfectly harmonic). None if no f0.
+    """
+    if not f0 or f0 <= 0 or not partials:
+        return None
+    devs = []
+    for p in partials:
+        f = p['freq_mean']
+        k = max(1, int(round(f / f0)))
+        devs.append(abs(f - k * f0) / f)
+    return float(np.mean(devs))
+
+
+def estimate_formants(source_path, sr=44100, order=14, max_formants=4):
+    """Estimate vocal-tract resonance (formant) frequencies via LPC.
+
+    Returns a list of (freq_hz, bandwidth_hz) sorted by frequency, limited to
+    90-5000 Hz. Empty list on failure. These hint a body-filter / Formant.ar
+    stack for vocal or resonant targets.
+    """
+    audio, file_sr = sf.read(source_path)
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    if file_sr != sr:
+        audio = librosa.resample(audio, orig_sr=file_sr, target_sr=sr)
+    # Focus on the loudest third — formants are most visible in the sustained body.
+    third = len(audio) // 3
+    if third < order + 1:
+        return []
+    seg = audio[third:2 * third] if third > 0 else audio
+    seg = seg - seg.mean()
+    if np.max(np.abs(seg)) < 1e-6:
+        return []
+    try:
+        a = librosa.lpc(seg, order=order)
+    except Exception:
+        return []
+    roots = np.roots(a)
+    roots = roots[np.abs(roots) < 0.999]
+    if roots.size == 0:
+        return []
+    angles = np.angle(roots)
+    freqs = angles * sr / (2 * np.pi)
+    bw = -np.log(np.abs(roots) + 1e-12) * sr / np.pi
+    formants = [(float(f), float(b)) for f, b in zip(freqs, bw)
+                if 90 < f < 5000 and b < 1000 and b > 0]
+    formants.sort(key=lambda x: x[0])
+    # Deduplicate formants closer than 100 Hz.
+    dedup = []
+    for f, b in formants:
+        if not dedup or abs(f - dedup[-1][0]) > 100:
+            dedup.append((f, b))
+    return dedup[:max_formants]
+
+
+def build_archetype_recommendation(partials, decomp, f0, harmonicity,
+                                   inharmonicity, formants):
+    """Map analysis to a primary SC archetype + optional hybrid layers.
+
+    Returns a multi-line string for target_partials.txt. This is a hint to the
+    agent — it does not replace the seeding phase, it focuses it.
+    """
+    sin_pct = decomp.get('sine_pct', 0)
+    resid_pct = decomp.get('resid_pct', 0)
+    perc_pct = decomp.get('perc_pct', 0)
+    harm_pct = decomp.get('harm_pct', 0)
+    inh = inharmonicity if inharmonicity is not None else 0.3
+    strong_formants = len(formants) >= 2
+
+    # Seed-family recommendation (parseable by compare.py for Phase B promotion).
+    # A vocal/instrumental body defined by formants cannot be reproduced by
+    # additive sines — promote formant_vocal so it wins the Phase B base.
+    if strong_formants and f0 and harmonicity > 0.4:
+        seed_family = 'formant_vocal'
+    elif f0 and harmonicity > 0.4 and inh < 0.03:
+        seed_family = 'subtractive'
+    elif f0 and inh >= 0.03:
+        seed_family = 'resonator_bank'
+    elif resid_pct > 40:
+        seed_family = 'chaos_noise'
+    else:
+        seed_family = 'flucoma_template'
+
+    primary = None
+    reason = []
+    if f0 and harmonicity > 0.3 and inh < 0.03:
+        primary = 'subtractive_or_blip'
+        reason.append(f"pitched (F0={f0:.0f} Hz) + harmonic (inh={inh:.3f})")
+    elif f0 and inh >= 0.03:
+        primary = 'klank_or_resonator_bank'
+        reason.append(f"inharmonic partials (inh={inh:.3f}, F0={f0:.0f} Hz)")
+    elif sin_pct > 50 and not f0:
+        primary = 'flucoma_template'
+        reason.append(f"sinusoid-dominant ({sin_pct:.0f}%) without clear F0")
+    elif resid_pct > 40:
+        primary = 'chaos_noise'
+        reason.append(f"residual/noise-dominant ({resid_pct:.0f}%)")
+    if formants:
+        reason.append(f"formants at {', '.join(f'{f:.0f}Hz' for f, _ in formants)}")
+
+    layers = []
+    if perc_pct > 8:
+        layers.append(f"transient layer: struck_resonator/Decay2 click ({perc_pct:.0f}% percussive)")
+    if resid_pct > 15:
+        layers.append(f"residual layer: shaped {decomp.get('noise_type', 'PinkNoise')} ({resid_pct:.0f}% residual)")
+    if formants:
+        layers.append(f"body layer: Formant.ar stack at the formant freqs above")
+
+    lines = ["=== SYNTHESIS ARCHETYPE RECOMMENDATION ==="]
+    # Parseable line — compare.py reads this to promote the Phase B base family
+    # (formant_vocal for vocal/formant targets) instead of defaulting to the
+    # additive flucoma_template on tiebreak.
+    lines.append(f"recommended_primary_archetype: {seed_family}")
+    if primary:
+        lines.append(f"primary archetype: {primary}  ({'; '.join(reason)})")
+    else:
+        lines.append("primary archetype: flucoma_template  (no strong signal; use the seeded template)")
+
+    # Formant-driven directive: a vocal/instrumental body defined by formants
+    # cannot be reproduced by additive sines — name formant_vocal as the body.
+    if seed_family == 'formant_vocal':
+        lines.append("")
+        lines.append(
+            f"DIRECTIVE: target has strong formants ({', '.join(f'{f:.0f} Hz' for f, _ in formants)}) "
+            f"and a pitched source (F0={f0:.0f} Hz). Use the formant_vocal family "
+            f"(Formant.ar stack at these frequencies, driven by a tonal F0 source) as the BODY "
+            f"layer of the bus — NOT additive SinOsc partials. Additive sines cannot reproduce "
+            f"a formant/vocal spectrum; spectral_convergence will stay >1.0 if you try."
+        )
+
+    # Missing-fundamental check: if YIN finds a confident F0 that is NOT among
+    # the dominant partials, the sinusoidal layer will lack the low end and the
+    # optimizer will tend to fill that hole with broadband noise (which MFCC
+    # rewards). Flag it so every seed includes a tonal oscillator at F0.
+    if f0 and harmonicity > 0.4:
+        near = any(abs(p['freq_mean'] - f0) / f0 < 0.03 for p in partials)
+        if not near:
+            lines.append("")
+            lines.append(
+                f"WARNING: fundamental F0={f0:.0f} Hz is ABSENT from the dominant partials "
+                f"(harmonicity {harmonicity:.2f}). The partials are upper harmonics. You MUST "
+                f"include a tonal oscillator at {f0:.0f} Hz in every seed (SinOsc/Saw/Blip), "
+                f"with its amplitude as a // @param — otherwise the optimizer fills the missing "
+                f"low end with noise."
+            )
+
+    if layers:
+        lines.append("hybrid layers to consider (decomposition-driven):")
+        for ly in layers:
+            lines.append(f"  - {ly}")
+    lines.append("These hints focus the seeding phase; the per-component layer assignment")
+    lines.append("(see comparison report after seeding) picks the final hybrid bus.")
+    return "\n".join(lines)
 
 
 def generate_templates(partials, decomp, target_duration):
@@ -346,7 +540,8 @@ def generate_templates(partials, decomp, target_duration):
     return "\n".join(lines)
 
 
-def format_output(partials, decomp, templates):
+def format_output(partials, decomp, templates, f0=None, harmonicity=0.0,
+                  inharmonicity=None, formants=None, recommendation=None):
     lines = []
 
     lines.append("=== DECOMPOSITION SUMMARY ===")
@@ -361,12 +556,26 @@ def format_output(partials, decomp, templates):
     lines.append(f"residual_spectral_slope: {slope:.2f} (use LPF on {noise})")
     lines.append(f"residual_envelope: {decomp.get('resid_env_shape', 'unknown')}")
 
+    lines.append("")
+    lines.append("=== PITCH & HARMONICITY ===")
+    lines.append(f"fundamental_freq: {f0:.1f} Hz" if f0 else "fundamental_freq: none (unpitched / noisy)")
+    lines.append(f"harmonicity: {harmonicity:.2f} (voiced-frame fraction)")
+    if inharmonicity is not None:
+        lines.append(f"inharmonicity: {inharmonicity:.4f} (0=harmonic, >0.03=inharmonic)")
+    if formants:
+        fstr = ", ".join(f"{f:.0f} Hz (bw {b:.0f})" for f, b in formants)
+        lines.append(f"formants: {fstr}")
+
     if partials:
         avg_drift = np.mean([p['freq_std'] for p in partials[:5]])
         lines.append(f"partial_freq_drift: {'high' if avg_drift > 100 else 'moderate' if avg_drift > 30 else 'low'} (avg std {avg_drift:.0f} Hz)")
         dr_range = [p['decay_ratio'] for p in partials[:5]]
         if len(dr_range) >= 2:
             lines.append(f"per_partial_decay: higher partials decay faster (ratio {dr_range[0]:.2f} -> {dr_range[-1]:.2f})")
+
+    if recommendation:
+        lines.append("")
+        lines.append(recommendation)
 
     lines.append("")
     lines.append("=== DOMINANT PARTIALS (top 10, by average magnitude) ===")
@@ -397,6 +606,12 @@ def main():
     info = sf.info(args.audio_file)
     target_duration = info.duration
 
+    # Write decomposition stems next to the output file so downstream
+    # per-component seed scoring can compare each archetype to its target layer.
+    stems_dir = None
+    if args.output:
+        stems_dir = os.path.join(os.path.dirname(os.path.abspath(args.output)), "stems")
+
     print(f"Analyzing partials: {args.audio_file} ({target_duration:.1f}s)")
     partials = analyze_partials(args.audio_file, sr=args.sample_rate)
     if not partials:
@@ -404,12 +619,23 @@ def main():
         partials = []
 
     print("Analyzing decomposition (sines/residual/harmonic/percussive)...")
-    decomp = analyze_decomposition(args.audio_file, sr=args.sample_rate)
+    decomp = analyze_decomposition(args.audio_file, sr=args.sample_rate,
+                                   stems_dir=stems_dir)
+
+    print("Estimating F0 / harmonicity / inharmonicity / formants...")
+    f0, harmonicity = estimate_f0(args.audio_file, sr=args.sample_rate)
+    inharmonicity = compute_inharmonicity(partials, f0)
+    formants = estimate_formants(args.audio_file, sr=args.sample_rate)
+    recommendation = build_archetype_recommendation(
+        partials, decomp, f0, harmonicity, inharmonicity, formants
+    )
 
     print("Generating SC templates...")
     templates = generate_templates(partials, decomp, target_duration)
 
-    output = format_output(partials, decomp, templates)
+    output = format_output(partials, decomp, templates, f0=f0,
+                           harmonicity=harmonicity, inharmonicity=inharmonicity,
+                           formants=formants, recommendation=recommendation)
 
     if args.output:
         with open(args.output, 'w') as f:

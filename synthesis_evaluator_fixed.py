@@ -323,6 +323,75 @@ class SynthesisEvaluator:
         )))
         metrics['log_spectral_distance'] = float(lsd)
 
+        # --- perceptual terms (primary): MFCC + mel-spectrogram distance ---
+        # MFCC distance is robust to sub-bin pitch drift and aligns with human
+        # timbre perception, unlike spectral_convergence which a few-Hz pitch
+        # error can dominate. Both are normalized by the reference's own norm so
+        # they sit on the same ~[0, 1+] scale as spectral_convergence.
+        mfcc_test = librosa.feature.mfcc(y=test_audio, sr=self.sr, n_mfcc=20)
+        mfcc_ref = librosa.feature.mfcc(y=ref_audio, sr=self.sr, n_mfcc=20)
+        n_mfcc_frames = min(mfcc_test.shape[1], mfcc_ref.shape[1])
+        if n_mfcc_frames > 0:
+            mfcc_diff = mfcc_test[:, :n_mfcc_frames] - mfcc_ref[:, :n_mfcc_frames]
+            metrics['mfcc_distance'] = float(
+                np.linalg.norm(mfcc_diff) / (np.linalg.norm(mfcc_ref[:, :n_mfcc_frames]) + 1e-12)
+            )
+        else:
+            metrics['mfcc_distance'] = 1.0
+
+        mel_test = librosa.feature.melspectrogram(y=test_audio, sr=self.sr, n_mels=64)
+        mel_ref = librosa.feature.melspectrogram(y=ref_audio, sr=self.sr, n_mels=64)
+        mel_test_db = librosa.power_to_db(mel_test + 1e-12)
+        mel_ref_db = librosa.power_to_db(mel_ref + 1e-12)
+        n_mel_frames = min(mel_test_db.shape[1], mel_ref_db.shape[1])
+        if n_mel_frames > 0:
+            mel_diff = mel_test_db[:, :n_mel_frames] - mel_ref_db[:, :n_mel_frames]
+            metrics['mel_distance'] = float(
+                np.linalg.norm(mel_diff) / (np.linalg.norm(mel_ref_db[:, :n_mel_frames]) + 1e-12)
+            )
+        else:
+            metrics['mel_distance'] = 1.0
+
+        # --- spectral-shape terms: centroid + flatness distance ---
+        # These give the optimizer counter-levers against noise-gaming: a
+        # building low-frequency noise tail lowers the attempt centroid away
+        # from a bright target, and changes its flatness. MFCC (time-integrated,
+        # low-order) can reward such a tail for matching the target's energy
+        # envelope; centroid/flatness distance penalize the wrong spectral shape.
+        c_test = float(np.mean(librosa.feature.spectral_centroid(y=test_audio, sr=self.sr)[0]))
+        c_ref = float(np.mean(librosa.feature.spectral_centroid(y=ref_audio, sr=self.sr)[0]))
+        metrics['centroid_distance'] = float(min(abs(c_test - c_ref) / (c_ref + 1e-9), 2.0))
+
+        # Band-wise flatness distance: whole-signal flatness is masked by strong
+        # sine partials, so it misses a low-frequency noise layer substituting
+        # for a missing fundamental. Comparing flatness per band (low vs high)
+        # isolates that substitution — the attempt's low band goes flat (noisy)
+        # where the target's is tonal, and this term penalizes it.
+        from scipy import stats as _stats
+        freqs_full = librosa.fft_frequencies(sr=self.sr, n_fft=2048)
+        band_defs = [('low', 20, 250), ('high', 2000, 8000)]
+        flat_dists = []
+        excess = []   # attempt NOISIER (flatter) than target, per band
+        deficit = []  # attempt MORE TONAL than target, per band
+        for _name, flo, fhi in band_defs:
+            mask = (freqs_full >= flo) & (freqs_full < fhi)
+            if not np.any(mask):
+                continue
+            bt = S_test_pad[mask, :].flatten()
+            br = S_ref_pad[mask, :].flatten()
+            ft = float(_stats.gmean(bt + 1e-12) / (np.mean(bt) + 1e-12))
+            fr = float(_stats.gmean(br + 1e-12) / (np.mean(br) + 1e-12))
+            d = (np.log10(ft + 1e-12) - np.log10(fr + 1e-12)) / 3.0
+            flat_dists.append(abs(d))
+            excess.append(max(0.0, d))
+            deficit.append(max(0.0, -d))
+        metrics['flatness_distance'] = float(min(np.mean(flat_dists) if flat_dists else 0.0, 2.0))
+        # Directional noise terms — drive the over-noise / too-tonal warnings.
+        # noise_excess > 0: attempt has MORE broadband noise than target (reduce it).
+        # noise_deficit > 0: attempt is MORE tonal/thin than target (add shaped noise).
+        metrics['noise_excess'] = float(min(np.mean(excess) if excess else 0.0, 2.0))
+        metrics['noise_deficit'] = float(min(np.mean(deficit) if deficit else 0.0, 2.0))
+
         # --- time-domain metrics on common-length window ---
         min_len = min(len(test_audio), len(ref_audio))
         t_td = test_audio[:min_len]
@@ -357,18 +426,31 @@ class SynthesisEvaluator:
         )
 
         # --- composite score (lower = better match) ---
-        # Weighted combination: spectral convergence is the primary term,
-        # log_spectral_distance, envelope_distance, and category accuracy
-        # add perceptual context.
+        # MFCC is perceptually aligned and robust to sub-bin pitch drift, but it
+        # can be GAMED by broadband/wrong-shape noise that fakes the target's
+        # energy envelope while diverging in fine spectral structure. That fine-
+        # structure mismatch shows up as spectral_convergence > 1.0 (the attempt
+        # spectrum is nearly orthogonal to the target). So spectral_convergence
+        # is made super-linear above 1.0 — an over-shape/wrong-noise penalty that
+        # forces the optimizer to pull noise back down rather than pin noise
+        # params at their maxima to lower MFCC.
+        sc = metrics['spectral_convergence']
+        spec_term = sc if sc <= 1.0 else 1.0 + 1.5 * (sc - 1.0)
+        metrics['over_shape_penalty'] = float(max(0.0, sc - 1.0))
+
         if category_penalty is not None:
             cat_penalty = float(min(max(category_penalty, 0.0), 1.0))
         else:
             cat_penalty = min(category_mismatches / 9.0, 1.0)
         metrics['composite_score'] = float(
-            0.35 * metrics['spectral_convergence']
-            + 0.22 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
-            + 0.18 * min(metrics['envelope_distance'], 2.0)
-            + 0.10 * metrics['onset_max_penalty']
+            0.22 * min(metrics['mfcc_distance'], 2.0)
+            + 0.08 * min(metrics['mel_distance'], 2.0)
+            + 0.18 * min(spec_term, 2.5)
+            + 0.10 * metrics['centroid_distance']
+            + 0.07 * metrics['flatness_distance']
+            + 0.05 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
+            + 0.10 * min(metrics['envelope_distance'], 2.0)
+            + 0.05 * metrics['onset_max_penalty']
             + 0.15 * cat_penalty
         )
 
