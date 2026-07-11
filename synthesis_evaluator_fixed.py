@@ -543,7 +543,12 @@ class SynthesisEvaluator:
         # forces the optimizer to pull noise back down rather than pin noise
         # params at their maxima to lower MFCC.
         sc = metrics['spectral_convergence']
-        spec_term = sc if sc <= 1.0 else 1.0 + 1.5 * (sc - 1.0)
+        # ponytail: 3.0 slope — seed selection uses sc > 1.0 as a
+        # structural disqualifier (wrong-shape architecture). A steeper
+        # slope makes the composite score reflect structural failure so
+        # pick_seed_winner / _resolve_race naturally rank correct-spectrum
+        # seeds above wrong-spectrum ones even under perceptual_heavy.
+        spec_term = sc if sc <= 1.0 else 1.0 + 3.0 * (sc - 1.0)
         metrics['over_shape_penalty'] = float(max(0.0, sc - 1.0))
 
         if category_penalty is not None:

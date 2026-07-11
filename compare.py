@@ -326,13 +326,29 @@ def parse_target_field_str(partials_path, field):
     return None
 
 
-def pick_seed_winner(seed_scores, partials_path=None):
+def pick_seed_winner(seed_scores, partials_path=None, seed_spec_conv=None):
     """Pick Phase B seed family; prefer the analysis-recommended archetype, then
-    flucoma_template, when scores are close."""
+    flucoma_template, when scores are close.
+
+    Structural gate (ponytail): spectral_convergence <= 1.0 means the seed's
+    spectrum is more similar to the target than to orthogonal noise — it has
+    the CORRECT spectral structure.  sc > 1.0 means the architecture is
+    fundamentally wrong (e.g. subtractive for a clave).  When at least one
+    seed is structurally valid, invalid seeds are disqualified regardless of
+    composite_score.  Falls through to normal scoring when ALL seeds are > 1.0.
+    """
     if not seed_scores:
         return None
 
-    best_score = min(seed_scores.values())
+    # --- structural gate: prefer seeds with correct spectrum ---
+    eligible = dict(seed_scores)
+    if seed_spec_conv:
+        valid = {fam for fam, sc in seed_spec_conv.items()
+                 if sc is not None and sc <= 1.0 and fam in seed_scores}
+        if valid:
+            eligible = {fam: seed_scores[fam] for fam in valid}
+
+    best_score = min(eligible.values())
     eps = SEED_TIEBREAK_EPS
     sin_pct = parse_decomposition_sinusoidal_pct(partials_path)
     if sin_pct is not None and sin_pct > 50.0:
@@ -350,18 +366,18 @@ def pick_seed_winner(seed_scores, partials_path=None):
     # doomed formant candidate; FORMANT_FORCE_MAX_GAP tuned by running on
     # known formant targets.
     recommended = parse_target_field_str(partials_path, 'recommended_primary_archetype')
-    if (recommended == 'formant_vocal' and 'formant_vocal' in seed_scores
-            and seed_scores['formant_vocal'] <= best_score + FORMANT_FORCE_MAX_GAP):
+    if (recommended == 'formant_vocal' and 'formant_vocal' in eligible
+            and eligible['formant_vocal'] <= best_score + FORMANT_FORCE_MAX_GAP):
         return 'formant_vocal'
-    if recommended and recommended in seed_scores:
+    if recommended and recommended in eligible:
         eps *= 1.5
 
-    close = [fam for fam, sc in seed_scores.items() if sc <= best_score + eps]
+    close = [fam for fam, sc in eligible.items() if sc <= best_score + eps]
     preference = [recommended] + PREFERRED_SEED_FAMILIES if recommended else PREFERRED_SEED_FAMILIES
     for pref in preference:
         if pref and pref in close:
             return pref
-    return min(seed_scores.items(), key=lambda x: x[1])[0]
+    return min(eligible.items(), key=lambda x: x[1])[0]
 
 
 def attempt_for_family(progress, family):
@@ -378,7 +394,8 @@ def apply_seed_winner_tiebreak(progress, partials_path=None):
     if not seed_scores:
         return progress
 
-    winner_fam = pick_seed_winner(seed_scores, partials_path)
+    winner_fam = pick_seed_winner(seed_scores, partials_path,
+                                   seed_spec_conv=progress.get('seed_spec_conv'))
     if not winner_fam:
         return progress
 
@@ -441,10 +458,13 @@ def _maybe_start_race(progress, partials_path):
         if fam in finalists and fam not in attempt_map:
             attempt_map[fam] = int(attempt_str)
 
+    seed_spec_conv = progress.get('seed_spec_conv', {})
     progress['race_active'] = True
     progress['race_finalists'] = finalists
     progress['race_iterations'] = {f: 0 for f in finalists}
     progress['race_scores'] = {f: seed_scores.get(f, float('inf')) for f in finalists}
+    progress['race_spec_conv'] = {f: seed_spec_conv.get(f) for f in finalists
+                                  if seed_spec_conv.get(f) is not None}
     progress['race_best_attempts'] = {f: attempt_map.get(f) for f in finalists}
     progress['race_current_idx'] = 0
     progress['race_budget'] = RACE_BUDGET
@@ -453,7 +473,7 @@ def _maybe_start_race(progress, partials_path):
     return True
 
 
-def _advance_race(progress, iteration, composite_score, arch):
+def _advance_race(progress, iteration, composite_score, arch, spec_conv=None):
     """Update race state after one iteration.  Rotates to the next finalist
     that still has budget remaining.  Returns True while the race is still
     active."""
@@ -464,6 +484,7 @@ def _advance_race(progress, iteration, composite_score, arch):
     race_iterations = progress.setdefault('race_iterations', {f: 0 for f in finalists})
     race_scores = progress.setdefault('race_scores', {f: float('inf') for f in finalists})
     race_attempts = progress.setdefault('race_best_attempts', {})
+    race_spec_conv = progress.setdefault('race_spec_conv', {})
     budget = progress.get('race_budget', RACE_BUDGET)
 
     # The current iteration belongs to the current finalist.
@@ -474,6 +495,12 @@ def _advance_race(progress, iteration, composite_score, arch):
     if composite_score < race_scores.get(current, float('inf')):
         race_scores[current] = composite_score
         race_attempts[current] = iteration
+    # Track best (lowest) spec_conv independently — spec_conv can degrade
+    # even as composite improves (noise games MFCC but breaks spectrum).
+    if spec_conv is not None:
+        prev_best_sc = race_spec_conv.get(current)
+        if prev_best_sc is None or spec_conv < prev_best_sc:
+            race_spec_conv[current] = spec_conv
 
     # Rotate to next finalist with remaining budget.
     n = len(finalists)
@@ -492,18 +519,33 @@ def _advance_race(progress, iteration, composite_score, arch):
     progress['race_iterations'] = race_iterations
     progress['race_scores'] = race_scores
     progress['race_best_attempts'] = race_attempts
+    progress['race_spec_conv'] = race_spec_conv
     return True
 
 
 def _resolve_race(progress):
-    """Pick the race winner empirically and clean up race state."""
+    """Pick the race winner empirically and clean up race state.
+
+    Structural gate: when some finalists have spec_conv <= 1.0 (correct
+    spectrum) and others don't, only the structurally valid ones are
+    eligible — no amount of param tuning fixes the wrong architecture.
+    """
     race_scores = progress.get('race_scores', {})
     race_attempts = progress.get('race_best_attempts', {})
+    race_spec_conv = progress.get('race_spec_conv', {})
     if not race_scores:
         progress['race_active'] = False
         return
 
-    winner_fam = min(race_scores, key=lambda f: race_scores[f])
+    # --- structural gate: prefer finalists with correct spectrum ---
+    eligible = dict(race_scores)
+    if race_spec_conv:
+        valid = {fam for fam, sc in race_spec_conv.items()
+                 if sc is not None and sc <= 1.0 and fam in race_scores}
+        if valid:
+            eligible = {fam: race_scores[fam] for fam in valid}
+
+    winner_fam = min(eligible, key=lambda f: eligible[f])
     winner_attempt = race_attempts.get(winner_fam)
     best_score = race_scores[winner_fam]
 
@@ -959,6 +1001,7 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     progress.setdefault('last_switch_iteration', 0)
     progress.setdefault('attempt_architectures', {})
     progress.setdefault('seed_scores', {})
+    progress.setdefault('seed_spec_conv', {})
     progress.setdefault('component_scores', {})
     progress.setdefault('seed_count', seed_count)
     progress.setdefault('restarted_seeds', [])
@@ -983,6 +1026,8 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
         progress['attempt_architectures'][str(iteration)] = arch
     if in_seeding_phase and arch:
         progress['seed_scores'][arch] = composite_score
+        if spec_conv is not None:
+            progress['seed_spec_conv'][arch] = spec_conv
 
     # During an active race, per-finalist best tracking is handled by
     # _advance_race — freeze the global best so a race iteration doesn't
@@ -1073,7 +1118,7 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     # suppress normal plateau detection (the race is short by design — each
     # finalist gets RACE_BUDGET iterations, so there isn't time to plateau).
     if progress.get('race_active') and not in_seeding_phase:
-        _advance_race(progress, iteration, composite_score, arch)
+        _advance_race(progress, iteration, composite_score, arch, spec_conv=spec_conv)
         # After _advance_race, if race just resolved, sync the best-attempt
         # state for the next iteration's normal hill-climb tracking.
         if not progress.get('race_active'):
