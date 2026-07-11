@@ -1037,7 +1037,8 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
         # --- approach #1: loss multiplexing ---
         # Try different loss weightings on the seed results; pick the one
         # with the best score separation for this particular target.
-        if output_dir and progress.get("seed_scores", {}):
+        seed_scores = progress.get("seed_scores", {})
+        if output_dir and seed_scores:
             try:
                 ev = SynthesisEvaluator()
                 tpath = os.path.join(output_dir, 'target.wav')
@@ -2391,7 +2392,10 @@ def main():
     if best_code is None and not (progress and progress.get('should_finish')):
         best_code = prev_code
 
-    announced = not progress.get('_race_announced') if progress else False
+    # format_report may flip _race_announced; capture pre-call state so we can
+    # persist progress.json once when that transition happens (update_progress
+    # already wrote the file before format_report ran).
+    race_was_unannounced = bool(progress and not progress.get('_race_announced'))
     report = format_report(convergence, mismatches, top_deltas,
                            prev_code=prev_code, progress=progress,
                            best_code=best_code, seeded_templates=seeded_templates,
@@ -2401,7 +2405,8 @@ def main():
                            signal_chain_health=signal_chain_health,
                            output_dir=args.progress_dir)
 
-    if args.progress_dir and progress is not None and announced and progress.get('_race_announced'):
+    if (args.progress_dir and progress is not None
+            and race_was_unannounced and progress.get('_race_announced')):
         progress_path = os.path.join(args.progress_dir, 'progress.json')
         with open(progress_path, 'w') as f:
             json.dump(progress, f, indent=2)
