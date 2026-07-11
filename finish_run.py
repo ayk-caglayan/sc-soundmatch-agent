@@ -40,10 +40,10 @@ def write_report(run_dir, progress, best_attempt, best_score):
     lines = [
         '# Run Report (auto-generated)',
         '',
-        f'- Iterations completed: {comp_count}',
+        f'- Steps completed: {comp_count}',
         f'- Best attempt: {best_attempt} (composite_score: {best_score:.4f})' if best_attempt else '- Best attempt: unknown',
         f"- Convergence threshold: {config.get('convergence_threshold', 'N/A')}",
-        f"- Max iterations: {config.get('max_iterations', 'N/A')}",
+        f"- Max steps: {config.get('max_iterations', 'N/A')}",
         '',
     ]
 

@@ -2,9 +2,15 @@
 
 Your run directory is `current_run/` (inside your workspace). Follow this protocol exactly.
 
+## Terminology
+
+- **Step** — one scored evaluate+compare cycle (`comparison_N.txt`); counts toward `max_iterations` in config.
+- **Attempt** — a draft `attempt_N.scd` (may exist before it is scored as a step).
+- **Agent round** — launcher resume session after the agent process exits.
+
 ## Setup
 
-1. Read `current_run/config.txt` to get `max_iterations`, `convergence_threshold`, `target_duration`, `optimizer_budget`, `seed_count`, and `seed_optimizer_budget`.
+1. Read `current_run/config.txt` to get `max_iterations`, `convergence_threshold`, `target_duration`, `optimizer_budget`, `seed_count`, and `seed_optimizer_budget`. Optional accelerator keys (all default off unless set): `use_pnp`, `use_replay`, `use_sensitivity`, `use_neural_proxy`, `use_jtfs`, `envelope_seed` (default true), `signal_chain_health`, `loss_config` (override auto-selected loss weights: `default`, `spectral_heavy`, or `perceptual_heavy`).
 2. Read `current_run/target_eval.txt` — it has three sections:
    - **AUDIO METRICS**: raw numeric values
    - **CATEGORIES**: brightness, attack_time, harmonic_to_noise_ratio, etc.
@@ -110,8 +116,10 @@ Verify: `exec ls -la current_run/attempt_N.wav`
 **Step 3b: Optimize Parameters (cheap — use `seed_optimizer_budget`)**
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <seed_optimizer_budget>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <seed_optimizer_budget> --progress-dir current_run
 ```
+
+Append when enabled in config.txt: `--use-pnp`, `--use-replay`, `--use-sensitivity`, `--use-neural-proxy`, `--use-jtfs`, and/or `--loss-config <name>`.
 
 **Step 4: Evaluate**
 
@@ -124,6 +132,8 @@ exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/evaluate.py 
 ```
 exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/compare.py current_run/target.wav current_run/attempt_N.wav -o current_run/comparison_N.txt --prev-code current_run/attempt_N.scd --progress-dir current_run --iteration N --partials current_run/target_partials.txt --seed-count <seed_count> --max-iter <max_iterations> --arch <family_name>
 ```
+
+Append when enabled in config.txt: `--signal-chain-health`, `--loss-config <name>`.
 
 Replace `N`, `<seed_count>`, and `<family_name>` with the actual values (e.g. `--seed-count 10 --arch granular`).
 
@@ -303,7 +313,7 @@ exec QT_QPA_PLATFORM=offscreen timeout 30 sclang current_run/attempt_N_nrt.scd
 
 Verify: `exec ls -la current_run/attempt_N.wav`
 
-If no WAV or sclang failed: fix code, redo steps 1b–3. Don't count failed synthesis as an iteration.
+If no WAV or sclang failed: fix code, redo steps 1b–3. Don't count failed synthesis as a step.
 
 ### Step 3b: Optimize Parameters
 
@@ -312,7 +322,7 @@ The baseline render proves your structure works. Now let the numeric optimizer t
 Use `optimizer_budget` from `config.txt` and `target_duration` for `-d`:
 
 ```
-exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget>
+exec /home/ayk/miniconda3/bin/python3 /home/ayk/sc-soundmatch-agent/optimize_params.py current_run/attempt_N.scd --target current_run/target.wav -d <target_duration> --budget <optimizer_budget> --progress-dir current_run
 ```
 
 This is your numeric search — do NOT hand-tune the annotated parameters yourself. Spend your own edits on structure (oscillators, envelopes, architecture) and let this step handle the numbers. If it prints "No @param annotations found", go back to Step 1 and add 3–8 `// @param` annotations, then redo Steps 1b–3b.

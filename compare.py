@@ -15,7 +15,10 @@ from pathlib import Path
 import numpy as np
 import librosa
 import soundfile as sf
-from synthesis_evaluator_fixed import SynthesisEvaluator, load_and_preprocess
+from synthesis_evaluator_fixed import (
+    SynthesisEvaluator, load_and_preprocess, LOSS_CONFIGS,
+)
+import synthesis_evaluator_fixed as sev
 
 
 CATEGORY_SUGGESTIONS = {
@@ -270,6 +273,46 @@ def parse_target_field(partials_path, field):
     return None
 
 
+def parse_target_envelope(partials_path):
+    """Read envelope params from target_partials.txt (approach #8).
+
+    Returns a dict with keys matching estimate_envelope() output, or None.
+    Used by build_seeded_templates to seed Env.perc/Env.adsr params instead
+    of hardcoding ``Env.perc(0.01, 2.0)``.
+    """
+    if not partials_path or not os.path.exists(partials_path):
+        return None
+    env = {}
+    try:
+        lines = Path(partials_path).read_text(encoding='utf-8').splitlines()
+        in_envelope = False
+        for line in lines:
+            if line.startswith('=== AMPLITUDE ENVELOPE'):
+                in_envelope = True
+                continue
+            if in_envelope and line.startswith('==='):
+                break
+            if in_envelope and ':' in line:
+                key, _, val = line.partition(':')
+                key = key.strip()
+                val = val.strip()
+                if key == 'envelope_shape':
+                    env['env_shape'] = val
+                elif key == 'envelope_attack_sec':
+                    env['attack_sec'] = float(val)
+                elif key == 'envelope_decay_sec':
+                    env['decay_sec'] = float(val)
+                elif key == 'envelope_release_sec':
+                    env['release_sec'] = float(val)
+                elif key == 'envelope_peak_frac':
+                    env['peak_frac'] = float(val)
+                elif key == 'envelope_sustain_level':
+                    env['sustain_level'] = float(val)
+    except (OSError, ValueError):
+        return None
+    return env if env else None
+
+
 def parse_target_field_str(partials_path, field):
     """Return a string field (e.g. recommended_primary_archetype) from target_partials.txt."""
     if not partials_path or not os.path.exists(partials_path):
@@ -509,11 +552,16 @@ def _fmt_list(vals, fmt='{:.1f}'):
     return '[' + ', '.join(fmt.format(v) for v in vals) + ']'
 
 
-def build_seeded_templates(partials):
+def build_seeded_templates(partials, envelope=None):
     """Build architecture templates seeded with the target's actual partials.
 
     Falls back to the generic hard-coded templates when no partials are
     available so the system still behaves on targets without FluCoMa output.
+
+    When ``envelope`` is provided (approach #8), the hardcoded
+    ``Env.perc(0.01, 2.0)`` envelope is replaced with params matched to the
+    target's measured amplitude envelope — attack, decay, release, sustain
+    level — so the optimizer starts closer to the correct temporal shape.
     """
     if not partials:
         return dict(ARCHITECTURE_TEMPLATES)
@@ -527,9 +575,22 @@ def build_seeded_templates(partials):
     fundamental = tfreqs[0]
     mod_freq = tfreqs[1] if len(tfreqs) > 1 else fundamental
 
+    # --- envelope params for modulation-aware seeding (approach #8) ---
+    if envelope:
+        atk = max(0.001, envelope.get('attack_sec', 0.01))
+        rel = max(0.3, envelope.get('release_sec', 2.0))
+        sus = envelope.get('sustain_level', 0.5)
+        if envelope.get('env_shape') == 'sustained':
+            env_perc = f'Env([0, 1, {sus:.2f}, 0], [{atk:.3f}, {rel:.2f}, 0.1], [\\sus, \\step, -6])'
+        else:
+            env_perc = f'Env.perc({atk:.4f}, {rel:.2f})'
+    else:
+        atk, rel, sus = 0.01, 2.0, 0.5
+        env_perc = f'Env.perc({atk:.2f}, {rel:.2f})'
+
     struck = (
         "var env, click, sig;\n"
-        "env = EnvGen.kr(Env.perc(0.001, 1.5, curve: -6), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         "click = Decay.ar(Impulse.ar(0), 0.002, ClipNoise.ar(0.05));\n"
         f"sig = Klank.ar(`[{_fmt_list(tfreqs)}, {_fmt_list(namps, '{:.3f}')}, "
         f"{_fmt_list(ringtimes, '{:.2f}')}], click);\n"
@@ -825,6 +886,8 @@ def read_run_config(progress_dir):
         'max_iterations': 0,
         'convergence_threshold': 0.0,
         'seed_count': 0,
+        'envelope_seed': True,
+        'signal_chain_health': False,
     }
     if not progress_dir:
         return config
@@ -845,6 +908,14 @@ def read_run_config(progress_dir):
                 config['convergence_threshold'] = float(val)
             elif key == 'seed_count':
                 config['seed_count'] = int(val)
+            elif key == 'loss_config':
+                val = val.strip()
+                if val:
+                    config['loss_config'] = val
+            elif key in ('use_pnp', 'use_replay', 'use_sensitivity',
+                         'use_neural_proxy', 'use_jtfs', 'envelope_seed',
+                         'signal_chain_health'):
+                config[key] = val.lower() in ('true', '1', 'yes', 'on')
     except (OSError, ValueError):
         pass
     return config
@@ -963,6 +1034,30 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
         # ponytail: stash partials_path so _resolve_race can read the analysis
         # recommendation without threading it through every call.
         progress['_partials_path'] = partials_path
+        # --- approach #1: loss multiplexing ---
+        # Try different loss weightings on the seed results; pick the one
+        # with the best score separation for this particular target.
+        if output_dir and progress.get("seed_scores", {}):
+            try:
+                ev = SynthesisEvaluator()
+                tpath = os.path.join(output_dir, 'target.wav')
+                taudio, _ = load_and_preprocess(tpath, sr=ev.sr,
+                                                normalize=True, trim_silence=True)
+                tcats = ev.categorize_metrics(ev.evaluate(taudio))
+                attempts_data = []
+                for att_str, _ in seed_scores.items():
+                    # Find the attempt number for this family.
+                    for astr, fam in progress.get('attempt_architectures', {}).items():
+                        if fam == att_str:
+                            apath = os.path.join(output_dir, f'attempt_{astr}.wav')
+                            if os.path.exists(apath):
+                                attempts_data.append((int(astr), apath, 0.0))
+                            break
+                if len(attempts_data) >= 2:
+                    best_cfg = pick_loss_config(attempts_data, ev, taudio, tcats)
+                    progress['loss_config'] = best_cfg
+            except Exception:
+                pass  # ponytail: non-critical, fall through to default
         # Try a short race among top finalists before crowning a winner.
         # Falls through to normal tiebreak when there aren't enough close seeds.
         if not _maybe_start_race(progress, partials_path):
@@ -1158,7 +1253,7 @@ def _bus_skeleton(layer_assignment, next_attempt, output_dir=None):
     return "\n".join(lines)
 
 
-def _format_layer_assignment_section(progress, output_dir,
+def _format_layer_assignment_section(progress, output_dir, signal_chain_health,
                                      next_attempt, component_scores_iteration):
     """COMPONENT LAYER ASSIGNMENT + bus skeleton + optional signal-chain health."""
     layer_assignment = progress.get('layer_assignment', {})
@@ -1186,7 +1281,107 @@ def _format_layer_assignment_section(progress, output_dir,
     skeleton = _bus_skeleton(layer_assignment, next_attempt, output_dir)
     if skeleton:
         lines.append(skeleton)
+    component_scores = progress.get('component_scores', {})
+    last_comp = component_scores.get(str(component_scores_iteration), {})
+    if signal_chain_health and last_comp:
+        lines.append("")
+        lines.append("=== SIGNAL-CHAIN LAYER HEALTH (approach #7) ===")
+        lines.append("Per-stem score of THIS attempt's layers vs decomposition:")
+        for slot in ['sinusoidal', 'residual', 'transient']:
+            score_val = last_comp.get(slot)
+            info = layer_assignment.get(slot, {})
+            if score_val is not None:
+                status = 'OK' if score_val < 0.5 else 'WEAK' if score_val < 1.0 else 'POOR'
+                lines.append(f"  {slot}: mfcc_dist={score_val:.3f} [{status}] "
+                             f"(layer: {info.get('family', '?')})")
+            elif slot in layer_assignment:
+                lines.append(f"  {slot}: no data (layer: {info.get('family', '?')})")
+        lines.append("POOR layers are being carried by the sum — consider replacing them.")
     return lines
+
+
+# ============================================================================
+# Approach #1: Loss multiplexing — try different weight vectors, pick the best
+# ============================================================================
+# Salimi et al. 2025: no universal best loss. The optimal weighting depends on
+# the synthesizer AND the target. During seeding, we compute the score spread
+# (best vs worst) under 3 alternative weight vectors. The one with the widest
+# normalized spread is likely the most discriminating for this particular
+# target, so we use it for the hill-climb phase.
+
+_LOSS_CONFIGS = LOSS_CONFIGS  # alias for pick_loss_config / eval_loss_config
+
+
+def resolve_loss_config(progress_dir=None, cli_override=None):
+    """CLI override > progress.json loss_config > None (built-in default)."""
+    if cli_override:
+        return cli_override if cli_override in LOSS_CONFIGS else 'default'
+    if progress_dir:
+        ppath = os.path.join(progress_dir, 'progress.json')
+        if os.path.exists(ppath):
+            try:
+                progress = json.loads(Path(ppath).read_text(encoding='utf-8'))
+                cfg = progress.get('loss_config')
+                if cfg in LOSS_CONFIGS:
+                    return cfg
+            except (OSError, json.JSONDecodeError):
+                pass
+    return None
+
+
+def apply_loss_config(name):
+    """Set module-level active loss config (None = built-in default weights)."""
+    sev._ACTIVE_LOSS_CONFIG = name if name in LOSS_CONFIGS else None
+
+
+def eval_loss_config(config_name, evaluator, attempt_audio, target_audio,
+                     target_categories, attempt_categories):
+    """Compute composite score under a specific loss weight configuration."""
+    prev = sev._ACTIVE_LOSS_CONFIG
+    try:
+        apply_loss_config(config_name)
+        penalty = compute_category_penalty(
+            evaluator, target_categories, attempt_categories)
+        conv = evaluator.compare_with_reference(
+            attempt_audio, target_audio, category_penalty=penalty)
+        return float(conv['composite_score']), conv
+    finally:
+        sev._ACTIVE_LOSS_CONFIG = prev
+
+
+def pick_loss_config(attempts_data, evaluator, target_audio, target_categories):
+    """Try all loss configs on seed results; pick the one with best separation.
+
+    ``attempts_data`` is a list of (attempt_id, audio_path, score) tuples from
+    seeding. Returns the config name with the widest normalized score spread.
+    """
+    if len(attempts_data) < 2:
+        return 'default'
+    best_config = 'default'
+    best_spread = -1.0
+    for cfg_name in _LOSS_CONFIGS:
+        scores = []
+        for _aid, apath, _old_score in attempts_data:
+            try:
+                aaudio, _ = load_and_preprocess(apath, sr=evaluator.sr,
+                                                normalize=True, trim_silence=True)
+            except Exception:
+                continue
+            if aaudio.size == 0:
+                continue
+            attempt_metrics = evaluator.evaluate(aaudio)
+            attempt_categories = evaluator.categorize_metrics(attempt_metrics)
+            sc, _conv = eval_loss_config(
+                cfg_name, evaluator, aaudio, target_audio,
+                target_categories, attempt_categories)
+            scores.append(sc)
+        if len(scores) < 2:
+            continue
+        spread = (max(scores) - min(scores)) / (np.mean(scores) + 1e-9)
+        if spread > best_spread:
+            best_spread = spread
+            best_config = cfg_name
+    return best_config
 
 
 def compute_layer_assignment(progress, partials_path=None):
@@ -1379,6 +1574,76 @@ def _step_phase_label(progress, iteration):
     return 'hill-climb'
 
 
+def _poor_layer_hints(progress, iteration):
+    """Slots marked POOR in signal-chain health (for plateau hints)."""
+    layer_assignment = progress.get('layer_assignment', {}) or {}
+    last_comp = (progress.get('component_scores') or {}).get(str(iteration), {})
+    hints = []
+    for slot in ('sinusoidal', 'residual', 'transient'):
+        score_val = last_comp.get(slot)
+        if score_val is not None and score_val >= 1.0:
+            fam = layer_assignment.get(slot, {}).get('family', '?')
+            hints.append(f"{slot} ({fam}, mfcc_dist={score_val:.3f})")
+    return hints
+
+
+def run_self_check(progress_dir, sr=44100):
+    """P3: verify loss configs discriminate and pick_loss_config is consistent."""
+    progress_path = os.path.join(progress_dir, 'progress.json')
+    if not os.path.exists(progress_path):
+        print(f"self-check: no progress.json in {progress_dir}", file=sys.stderr)
+        return 1
+    progress = json.loads(Path(progress_path).read_text(encoding='utf-8'))
+    seed_scores = progress.get('seed_scores', {})
+    arch_map = progress.get('attempt_architectures', {})
+    attempts_data = []
+    for att_str, fam in arch_map.items():
+        if int(att_str) > progress.get('seed_count', 0):
+            continue
+        apath = os.path.join(progress_dir, f'attempt_{att_str}.wav')
+        if os.path.exists(apath):
+            attempts_data.append((int(att_str), apath, seed_scores.get(fam, 0.0)))
+    if len(attempts_data) < 2:
+        print("self-check: skip (need >=2 seed attempts)")
+        return 0
+    tpath = os.path.join(progress_dir, 'target.wav')
+    if not os.path.exists(tpath):
+        print(f"self-check: missing {tpath}", file=sys.stderr)
+        return 1
+    ev = SynthesisEvaluator(sample_rate=sr)
+    taudio, _ = load_and_preprocess(tpath, sr=sr, normalize=True, trim_silence=True)
+    tcats = ev.categorize_metrics(ev.evaluate(taudio))
+    spreads = {}
+    for cfg_name in LOSS_CONFIGS:
+        scores = []
+        for _aid, apath, _ in attempts_data:
+            try:
+                aaudio, _ = load_and_preprocess(apath, sr=sr, normalize=True, trim_silence=True)
+            except Exception:
+                continue
+            if aaudio.size == 0:
+                continue
+            am = ev.evaluate(aaudio)
+            ac = ev.categorize_metrics(am)
+            sc, _ = eval_loss_config(cfg_name, ev, aaudio, taudio, tcats, ac)
+            scores.append(sc)
+        if len(scores) >= 2:
+            spreads[cfg_name] = (max(scores) - min(scores)) / (np.mean(scores) + 1e-9)
+    if len(spreads) < 2:
+        print("self-check: could not score enough seeds")
+        return 1
+    if max(spreads.values()) - min(spreads.values()) < 1e-6:
+        print("self-check FAIL: all loss configs produce identical spreads", file=sys.stderr)
+        return 1
+    picked = pick_loss_config(attempts_data, ev, taudio, tcats)
+    best_name = max(spreads, key=spreads.get)
+    if picked != best_name:
+        print(f"self-check FAIL: pick_loss_config={picked} != widest spread={best_name}",
+              file=sys.stderr)
+        return 1
+    print(f"self-check OK: loss configs discriminate; selected={picked}")
+    return 0
+
 
 def run_self_check_race_report():
     """Verify RACE FINISHED emits once and includes layer assignment."""
@@ -1412,7 +1677,7 @@ def run_self_check_race_report():
 def format_report(convergence, mismatches, top_deltas, prev_code=None,
                   progress=None, best_code=None, seeded_templates=None,
                   max_iterations=0, convergence_threshold=0.0, partials_path=None,
-                  output_dir=None):
+                  signal_chain_health=False, output_dir=None):
     lines = []
 
     composite = convergence.get('composite_score', convergence.get('spectral_convergence', 0))
@@ -1581,9 +1846,16 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                         for rank, (fam, sc) in enumerate(ranked, 1):
                             lines.append(f"  {rank}. {fam}: {sc:.4f}")
 
+                    # --- approach #1: loss config selected for hill-climb ---
+                    loss_cfg = progress.get('loss_config')
+                    if loss_cfg and loss_cfg != 'default':
+                        lines.append(
+                            f"Loss config selected: {loss_cfg} "
+                            f"(best score separation for this target)."
+                        )
 
                     lines.extend(_format_layer_assignment_section(
-                        progress, output_dir,
+                        progress, output_dir, signal_chain_health,
                         effective_seed_count + 1, iteration,
                     ))
             else:
@@ -1657,8 +1929,14 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                 f"(from config.txt), then continue the hill-climb from that "
                 "attempt as your BASE CODE."
             )
+            loss_cfg = progress.get('loss_config')
+            if loss_cfg and loss_cfg != 'default':
+                lines.append(
+                    f"Loss config selected: {loss_cfg} "
+                    f"(best score separation for this target)."
+                )
             lines.extend(_format_layer_assignment_section(
-                progress, output_dir,
+                progress, output_dir, signal_chain_health,
                 iteration + 1, effective_seed_count,
             ))
             progress['_race_announced'] = True
@@ -1777,6 +2055,7 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     lines.append("")
 
     if progress and progress.get('plateau_detected') and not should_finish:
+        poor_hints = _poor_layer_hints(progress, iteration) if signal_chain_health else []
         best_attempt = progress.get('best_attempt')
         best_score = progress.get('best_score')
         arch_name = progress.get('switch_architecture') or ARCHITECTURE_ORDER[0]
@@ -1944,7 +2223,7 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     return "\n".join(lines)
 
 
-def dump_seed_templates(partials_path, output_path):
+def dump_seed_templates(partials_path, output_path, envelope_seed=True):
     """Write seed templates for all architecture families to a text file.
 
     Each family gets a clearly delimited block that the agent can copy verbatim
@@ -1952,7 +2231,8 @@ def dump_seed_templates(partials_path, output_path):
     target's dominant partials when available.
     """
     partials = parse_partials(partials_path) if partials_path else []
-    templates = build_seeded_templates(partials)
+    envelope = parse_target_envelope(partials_path) if envelope_seed else None
+    templates = build_seeded_templates(partials, envelope=envelope)
 
     lines = [
         "# Architecture Templates — copy blocks from this file.",
@@ -1997,6 +2277,16 @@ def main():
     parser.add_argument('--stems-dir', default=None,
                         help='Directory of decomposition stems (sines/residual/percussive.wav). '
                              'Defaults to <progress-dir>/stems. Used for per-component seed scoring.')
+    parser.add_argument('--loss-config', default=None,
+                        choices=list(LOSS_CONFIGS.keys()),
+                        help='Override loss weight config (default/spectral_heavy/perceptual_heavy). '
+                             'CLI overrides progress.json auto-selection.')
+    parser.add_argument('--signal-chain-health', action='store_true',
+                        help='Emit per-layer signal-chain health block in Phase B reports.')
+    parser.add_argument('--no-envelope-seed', action='store_true',
+                        help='With --dump-templates: skip envelope-aware Env.perc seeding.')
+    parser.add_argument('--self-check', action='store_true',
+                        help='Verify loss-config selection on seed attempts in progress-dir; exit.')
     parser.add_argument('--self-check-race-report', action='store_true',
                         help='Verify RACE FINISHED one-shot + layer assignment; exit.')
     args = parser.parse_args()
@@ -2004,6 +2294,10 @@ def main():
     if args.self_check_race_report:
         sys.exit(run_self_check_race_report())
 
+    if args.self_check:
+        if not args.progress_dir:
+            parser.error('--self-check requires --progress-dir')
+        sys.exit(run_self_check(args.progress_dir, sr=args.sample_rate))
 
     if args.dump_templates:
         partials_path = args.partials
@@ -2011,7 +2305,8 @@ def main():
             candidate = os.path.join(args.progress_dir, 'target_partials.txt')
             if os.path.exists(candidate):
                 partials_path = candidate
-        dump_seed_templates(partials_path, args.dump_templates)
+        dump_seed_templates(partials_path, args.dump_templates,
+                            envelope_seed=not args.no_envelope_seed)
         sys.exit(0)
 
     run_config = read_run_config(args.progress_dir)
@@ -2021,6 +2316,12 @@ def main():
     )
     if args.seed_count == 0 and run_config['seed_count'] > 0:
         args.seed_count = run_config['seed_count']
+    signal_chain_health = (
+        args.signal_chain_health or run_config.get('signal_chain_health', False)
+    )
+    lc = args.loss_config or run_config.get('loss_config')
+    loss_cfg = resolve_loss_config(args.progress_dir, cli_override=lc or None)
+    apply_loss_config(loss_cfg)
 
     if not args.target or not args.attempt:
         parser.error("target and attempt are required unless --dump-templates is used")
@@ -2044,7 +2345,11 @@ def main():
         candidate = os.path.join(args.progress_dir, 'target_partials.txt')
         if os.path.exists(candidate):
             partials_path = candidate
-    seeded_templates = build_seeded_templates(parse_partials(partials_path))
+    use_envelope = run_config.get('envelope_seed', True)
+    seeded_templates = build_seeded_templates(
+        parse_partials(partials_path),
+        envelope=parse_target_envelope(partials_path) if use_envelope else None,
+    )
 
     progress = None
     best_code = None
@@ -2086,12 +2391,20 @@ def main():
     if best_code is None and not (progress and progress.get('should_finish')):
         best_code = prev_code
 
+    announced = not progress.get('_race_announced') if progress else False
     report = format_report(convergence, mismatches, top_deltas,
                            prev_code=prev_code, progress=progress,
                            best_code=best_code, seeded_templates=seeded_templates,
                            max_iterations=max_iterations,
                            convergence_threshold=convergence_threshold,
-                           partials_path=partials_path)
+                           partials_path=partials_path,
+                           signal_chain_health=signal_chain_health,
+                           output_dir=args.progress_dir)
+
+    if args.progress_dir and progress is not None and announced and progress.get('_race_announced'):
+        progress_path = os.path.join(args.progress_dir, 'progress.json')
+        with open(progress_path, 'w') as f:
+            json.dump(progress, f, indent=2)
 
     if args.output:
         with open(args.output, 'w') as f:

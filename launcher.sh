@@ -447,6 +447,14 @@ target_duration: $TARGET_DURATION
 optimizer_budget: $OPTIMIZER_BUDGET
 seed_count: $SEED_COUNT
 seed_optimizer_budget: $SEED_OPT_BUDGET
+use_pnp: false
+use_replay: false
+use_sensitivity: false
+use_neural_proxy: false
+use_jtfs: false
+envelope_seed: true
+signal_chain_health: false
+loss_config:
 EOF
 echo "Run config written."
 fi
@@ -537,7 +545,7 @@ start_monitor() {
             COMPARISON_COUNT=$(latest_scored_step "$RUN_DIR")
 
             if [ "$COMPARISON_COUNT" -ge "$MAX_ITER" ]; then
-                echo "[$(date +%H:%M:%S)] Iteration limit reached ($COMPARISON_COUNT/$MAX_ITER) — stopping agent"
+                echo "[$(date +%H:%M:%S)] Step limit reached ($COMPARISON_COUNT/$MAX_ITER) — stopping agent"
                 touch "$RUN_DIR/ITERATION_LIMIT_REACHED"
                 kill "$AGENT_PID" 2>/dev/null || true
                 break
@@ -546,11 +554,11 @@ start_monitor() {
             if [ "$COMPARISON_COUNT" -gt "$LAST_REPORTED" ]; then
                 LATEST_COMP=$(ls "$RUN_DIR"/comparison_[0-9]*.txt 2>/dev/null | sort -V | tail -1)
                 LATEST_SCORE=$(grep -m1 '^composite_score:\|^spectral_convergence:' "$LATEST_COMP" 2>/dev/null | awk '{print $2}')
-                echo "[$(date +%H:%M:%S)] Iteration $COMPARISON_COUNT complete | score=${LATEST_SCORE:-N/A} | threshold=$THRESHOLD | progress=$COMPARISON_COUNT/$MAX_ITER"
-                tg_send "[$TARGET_BASENAME] Iteration $COMPARISON_COUNT — composite_score: ${LATEST_SCORE:-N/A} (threshold: $THRESHOLD)"
+                echo "[$(date +%H:%M:%S)] Step $COMPARISON_COUNT/$MAX_ITER complete | score=${LATEST_SCORE:-N/A} | threshold=$THRESHOLD"
+                tg_send "[$TARGET_BASENAME] Step $COMPARISON_COUNT/$MAX_ITER — composite_score: ${LATEST_SCORE:-N/A} (threshold: $THRESHOLD)"
                 LAST_REPORTED=$COMPARISON_COUNT
             elif [ "$ATTEMPT_COUNT" -gt "$LAST_ATTEMPT_REPORTED" ]; then
-                echo "[$(date +%H:%M:%S)] Iteration $ATTEMPT_COUNT started..."
+                echo "[$(date +%H:%M:%S)] Attempt $ATTEMPT_COUNT drafted (step $COMPARISON_COUNT/$MAX_ITER scored so far)..."
                 LAST_ATTEMPT_REPORTED=$ATTEMPT_COUNT
             fi
 
@@ -747,5 +755,5 @@ for comp_file in "$RUN_DIR"/comparison_[0-9]*.txt; do
     N=$(basename "$comp_file" | sed 's/comparison_\([0-9]*\)\.txt/\1/')
     CSCORE=$(grep '^composite_score:' "$comp_file" 2>/dev/null | awk '{print $2}')
     SCSCORE=$(grep '^spectral_convergence:' "$comp_file" 2>/dev/null | awk '{print $2}')
-    echo "  Iteration $N: composite_score = ${CSCORE:-N/A} | spectral_convergence = ${SCSCORE:-N/A}"
+    echo "  Step $N: composite_score = ${CSCORE:-N/A} | spectral_convergence = ${SCSCORE:-N/A}"
 done

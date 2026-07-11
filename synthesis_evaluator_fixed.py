@@ -13,6 +13,65 @@ import librosa
 from scipy import signal, stats
 from typing import Dict, Optional, Tuple
 
+# ponytail: JTFS is a better perceptual metric for nonstationary sounds
+# (captures AM/FM modulation that MSS misses), but kymatio is a heavy dep.
+# Only import when the evaluator is constructed with use_jtfs=True.
+_JTFS_AVAILABLE = False
+try:
+    import kymatio  # noqa: F401
+    _JTFS_AVAILABLE = True
+except ImportError:
+    pass
+
+
+# Loss multiplexing (approach #1): set before scoring; read by compare_with_reference.
+# compare.py / optimize_params.py assign this from progress['loss_config'] or CLI.
+LOSS_CONFIGS = {
+    'default': {
+        'mfcc': 0.22, 'mel': 0.08, 'spec': 0.18, 'centroid': 0.10,
+        'flatness': 0.07, 'lsd': 0.05, 'envelope': 0.10, 'onset': 0.05,
+        'category': 0.15,
+    },
+    'spectral_heavy': {
+        'mfcc': 0.15, 'mel': 0.10, 'spec': 0.28, 'centroid': 0.12,
+        'flatness': 0.05, 'lsd': 0.07, 'envelope': 0.08, 'onset': 0.03,
+        'category': 0.12,
+    },
+    'perceptual_heavy': {
+        'mfcc': 0.30, 'mel': 0.10, 'spec': 0.10, 'centroid': 0.08,
+        'flatness': 0.06, 'lsd': 0.04, 'envelope': 0.12, 'onset': 0.05,
+        'category': 0.15,
+    },
+}
+_ACTIVE_LOSS_CONFIG = None  # name key into LOSS_CONFIGS, or None for built-in default
+
+
+def _composite_from_metrics(metrics, spec_term, cat_penalty, cfg=None):
+    """Blend metric dict into composite_score using cfg weights (or defaults)."""
+    if cfg is None:
+        return float(
+            0.22 * min(metrics['mfcc_distance'], 2.0)
+            + 0.08 * min(metrics['mel_distance'], 2.0)
+            + 0.18 * min(spec_term, 2.5)
+            + 0.10 * metrics['centroid_distance']
+            + 0.07 * metrics['flatness_distance']
+            + 0.05 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
+            + 0.10 * min(metrics['envelope_distance'], 2.0)
+            + 0.05 * metrics['onset_max_penalty']
+            + 0.15 * cat_penalty
+        )
+    return float(
+        cfg['mfcc'] * min(metrics['mfcc_distance'], 2.0)
+        + cfg['mel'] * min(metrics['mel_distance'], 2.0)
+        + cfg['spec'] * min(spec_term, 2.5)
+        + cfg['centroid'] * metrics['centroid_distance']
+        + cfg['flatness'] * metrics['flatness_distance']
+        + cfg['lsd'] * min(metrics['log_spectral_distance'] / 10.0, 2.0)
+        + cfg['envelope'] * min(metrics['envelope_distance'], 2.0)
+        + cfg['onset'] * metrics['onset_max_penalty']
+        + cfg['category'] * cat_penalty
+    )
+
 
 # ---------------------------------------------------------------------------
 # Shared audio preprocessing
@@ -89,8 +148,11 @@ def load_and_preprocess(
 class SynthesisEvaluator:
     """Compute objective metrics for synthesis quality evaluation."""
     
-    def __init__(self, sample_rate=16000):
+    def __init__(self, sample_rate=16000, use_jtfs=False):
         self.sr = sample_rate
+        self._use_jtfs = use_jtfs and _JTFS_AVAILABLE
+        self._jtfs_transform = None
+        self._jtfs_shape = None
         
         # Frequency band definitions (Hz)
         self.bands = {
@@ -269,6 +331,47 @@ class SynthesisEvaluator:
         
         return metrics
     
+    def _jtfs_distance(self, test_audio, ref_audio):
+        """JTFS-based perceptual distance (approach #3: Han et al. 2024).
+
+        Joint Time-Frequency Scattering captures spectrotemporal modulations
+        that standard MSS misses — critical for FM synthesis, arpeggios, and
+        transient sounds. Returns a float distance or None if kymatio is
+        absent or computation fails.
+
+        ponytail: uses minimal JTFS config (J=8, Q=8, J_fr=3) — enough to
+        capture first-order modulation.  Full config is overkill for the
+        typical 2-second SC render.
+        """
+        if not self._use_jtfs:
+            return None
+        try:
+            from kymatio.scattering1d import TimeFrequencyScattering1D
+            import torch
+            min_len = min(len(test_audio), len(ref_audio))
+            if min_len < 2048:
+                return None
+            t = torch.from_numpy(test_audio[:min_len].astype(np.float32))
+            r = torch.from_numpy(ref_audio[:min_len].astype(np.float32))
+            J, Q, J_fr = 8, 8, 3
+            if self._jtfs_transform is None or self._jtfs_shape != min_len:
+                self._jtfs_transform = TimeFrequencyScattering1D(
+                    shape=min_len, J=J, Q=Q, J_fr=J_fr, Q_fr=1,
+                    T=2 ** J, F=2 ** J_fr, out_type='array',
+                )
+                self._jtfs_shape = min_len
+            jtfs = self._jtfs_transform
+            Sx_test = jtfs(t)
+            Sx_ref = jtfs(r)
+            # Log-magnitude L2 distance, normalized
+            log_test = np.log1p(np.abs(Sx_test))
+            log_ref = np.log1p(np.abs(Sx_ref))
+            num = np.linalg.norm(log_test - log_ref)
+            den = np.linalg.norm(log_ref) + 1e-12
+            return float(num / den)
+        except Exception:
+            return None
+
     def compare_with_reference(self, test_audio: np.ndarray,
                                ref_audio: np.ndarray,
                                category_mismatches: int = 0,
@@ -392,6 +495,11 @@ class SynthesisEvaluator:
         metrics['noise_excess'] = float(min(np.mean(excess) if excess else 0.0, 2.0))
         metrics['noise_deficit'] = float(min(np.mean(deficit) if deficit else 0.0, 2.0))
 
+        # --- JTFS perceptual distance (approach #3) ---
+        jtfs_d = self._jtfs_distance(test_audio, ref_audio)
+        if jtfs_d is not None:
+            metrics['jtfs_distance'] = float(min(jtfs_d, 2.0))
+
         # --- time-domain metrics on common-length window ---
         min_len = min(len(test_audio), len(ref_audio))
         t_td = test_audio[:min_len]
@@ -442,17 +550,26 @@ class SynthesisEvaluator:
             cat_penalty = float(min(max(category_penalty, 0.0), 1.0))
         else:
             cat_penalty = min(category_mismatches / 9.0, 1.0)
-        metrics['composite_score'] = float(
-            0.22 * min(metrics['mfcc_distance'], 2.0)
-            + 0.08 * min(metrics['mel_distance'], 2.0)
-            + 0.18 * min(spec_term, 2.5)
-            + 0.10 * metrics['centroid_distance']
-            + 0.07 * metrics['flatness_distance']
-            + 0.05 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
-            + 0.10 * min(metrics['envelope_distance'], 2.0)
-            + 0.05 * metrics['onset_max_penalty']
-            + 0.15 * cat_penalty
-        )
+        # JTFS reweight overrides loss multiplex config when JTFS is active.
+        if 'jtfs_distance' in metrics:
+            metrics['composite_score'] = float(
+                0.20 * min(metrics['mfcc_distance'], 2.0)
+                + 0.07 * min(metrics['mel_distance'], 2.0)
+                + 0.15 * min(spec_term, 2.5)
+                + 0.09 * metrics['centroid_distance']
+                + 0.06 * metrics['flatness_distance']
+                + 0.04 * min(metrics['log_spectral_distance'] / 10.0, 2.0)
+                + 0.08 * min(metrics['envelope_distance'], 2.0)
+                + 0.04 * metrics['onset_max_penalty']
+                + 0.12 * cat_penalty
+                + 0.15 * metrics['jtfs_distance']
+            )
+        elif _ACTIVE_LOSS_CONFIG and _ACTIVE_LOSS_CONFIG in LOSS_CONFIGS:
+            metrics['composite_score'] = _composite_from_metrics(
+                metrics, spec_term, cat_penalty, LOSS_CONFIGS[_ACTIVE_LOSS_CONFIG])
+        else:
+            metrics['composite_score'] = _composite_from_metrics(
+                metrics, spec_term, cat_penalty)
 
         return metrics
     
