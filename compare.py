@@ -196,11 +196,31 @@ ARCHITECTURE_TEMPLATES = {
         "sig = Formant.ar(fund, fund * 2.5, fund * 0.2) + Formant.ar(fund, fund * 3.5, fund * 0.25);\n"
         "Out.ar(0, (sig * env * 0.25).dup);"
     ),
+    'wood_block': (
+        # Inharmonic wood-bar modal model (clave, woodblock, marimba).
+        # Exciter: short impulse + PinkNoise.  Resonator: 4 Ringz at
+        # inharmonic ratios (~2.76×, 5.4×, 8.93× the fundamental for a
+        # typical rosewood bar).  The optimizer tunes freqs, decays, and
+        # balance — this seed gives it the right modal structure to start.
+        "var exciter, sig, env, fund;\n"
+        "fund = 2400;\n"
+        "env = EnvGen.kr(Env.perc(0.0003, 0.12, curve: -4), doneAction: 2);\n"
+        "exciter = Decay.ar(Impulse.ar(0), 0.0004, PinkNoise.ar(0.15));\n"
+        "sig = Mix([\n"
+        "  Ringz.ar(exciter, fund, 0.003),\n"
+        "  Ringz.ar(exciter, fund * 2.76, 0.002),\n"
+        "  Ringz.ar(exciter, fund * 5.4, 0.0015),\n"
+        "  Ringz.ar(exciter, fund * 8.93, 0.001),\n"
+        "]);\n"
+        "sig = sig + (SinOsc.ar(fund, 0, 0.05) * env);\n"
+        "Out.ar(0, (sig * env * 0.4).dup);"
+    ),
 }
 
 ARCHITECTURE_ORDER = [
     'struck_resonator', 'physical_model', 'fm_synthesis', 'resonator_bank',
-    'granular', 'waveshaper_feedback', 'subtractive', 'chaos_noise', 'formant_vocal',
+    'granular', 'waveshaper_feedback', 'subtractive', 'chaos_noise',
+    'formant_vocal', 'wood_block',
 ]
 
 # Ordered list of architecture families used during the seeding phase.
@@ -218,6 +238,9 @@ SWITCH_GRACE = 2
 IMPROVEMENT_EPS = 2e-3
 SEED_TIEBREAK_EPS = 0.02
 PREFERRED_SEED_FAMILIES = ['flucoma_template']
+FORMANT_FORCE_MAX_GAP = 0.15  # max score gap to force formant_vocal (else fall through)
+RACE_BUDGET = 3               # iterations per finalist in post-seed race
+RACE_FINALIST_COUNT = 3       # top N seeds that enter the race
 
 
 def parse_decomposition_sinusoidal_pct(partials_path):
@@ -273,14 +296,19 @@ def pick_seed_winner(seed_scores, partials_path=None):
         eps *= 1.5
 
     # Formant-driven promotion: if the analysis recommends formant_vocal (strong
-    # formants + pitched source), FORCE it as the Phase B base when it was
-    # seeded. The seed score is misleading for formant targets — additive sines
-    # match the sines-stem cheaply but cannot reproduce a formant spectrum, so
-    # flucoma_template wins on seed score while being architecturally wrong.
-    # Forcing formant_vocal gives the recommendation teeth; the optimizer and
-    # hill-climb then develop the model that can actually match the target.
+    # formants + pitched source), promote it to Phase B base when it was seeded
+    # AND its score is within FORMANT_FORCE_MAX_GAP of the best.  The seed score
+    # is misleading for formant targets — additive sines match the sines-stem
+    # cheaply but cannot reproduce a formant spectrum, so flucoma_template wins
+    # on seed score while being architecturally wrong.  However, if the gap is
+    # large the formant model is too far behind to catch up — fall through to
+    # normal tiebreak so the race or plateau-restart can pick empirically.
+    # ponytail: gap gate prevents wasting a full optimization budget on a
+    # doomed formant candidate; FORMANT_FORCE_MAX_GAP tuned by running on
+    # known formant targets.
     recommended = parse_target_field_str(partials_path, 'recommended_primary_archetype')
-    if recommended == 'formant_vocal' and 'formant_vocal' in seed_scores:
+    if (recommended == 'formant_vocal' and 'formant_vocal' in seed_scores
+            and seed_scores['formant_vocal'] <= best_score + FORMANT_FORCE_MAX_GAP):
         return 'formant_vocal'
     if recommended and recommended in seed_scores:
         eps *= 1.5
@@ -326,6 +354,134 @@ def apply_seed_winner_tiebreak(progress, partials_path=None):
         and winner_fam != raw_best
     )
     return progress
+
+
+def _maybe_start_race(progress, partials_path):
+    """After seeding, start a short race among the top 2-3 finalists instead
+    of crowning one winner immediately.  Returns True if a race was started.
+
+    Grounded in Shier 2021: warm-started short optimization matched full-length
+    optimization at ~1/10 the cost.  Three finalists × 3 iterations = 9
+    evaluator calls — roughly one plateau cycle.  If it prevents a doomed
+    formant_vocal full-optimization run, it's net-negative cost.
+    """
+    seed_scores = progress.get('seed_scores', {})
+    if len(seed_scores) < 2:
+        return False
+
+    recommended = parse_target_field_str(partials_path, 'recommended_primary_archetype')
+
+    # Build finalist list: recommended family gets a lane only when its seed
+    # score is within FORMANT_FORCE_MAX_GAP of the best — don't waste race
+    # iterations on a family that seeded last (ponytail: same threshold as
+    # pick_seed_winner, tuned on known formant targets).
+    finalists = []
+    best_seed_score = min(seed_scores.values())
+    if (recommended and recommended in seed_scores
+            and seed_scores[recommended] <= best_seed_score + FORMANT_FORCE_MAX_GAP):
+        finalists.append(recommended)
+    rest = sorted(
+        [(s, f) for f, s in seed_scores.items() if f not in finalists],
+        key=lambda x: x[0],
+    )
+    for _score, fam in rest[:RACE_FINALIST_COUNT - len(finalists)]:
+        finalists.append(fam)
+
+    finalists = finalists[:RACE_FINALIST_COUNT]
+    if len(finalists) < 2:
+        return False
+
+    # Map each finalist to its seed attempt so the agent knows which template
+    # to develop.
+    attempt_map = {}
+    for attempt_str, fam in progress.get('attempt_architectures', {}).items():
+        if fam in finalists and fam not in attempt_map:
+            attempt_map[fam] = int(attempt_str)
+
+    progress['race_active'] = True
+    progress['race_finalists'] = finalists
+    progress['race_iterations'] = {f: 0 for f in finalists}
+    progress['race_scores'] = {f: seed_scores.get(f, float('inf')) for f in finalists}
+    progress['race_best_attempts'] = {f: attempt_map.get(f) for f in finalists}
+    progress['race_current_idx'] = 0
+    progress['race_budget'] = RACE_BUDGET
+    # Don't pick a winner yet — let the race decide.
+    progress['seed_winner_family'] = None
+    return True
+
+
+def _advance_race(progress, iteration, composite_score, arch):
+    """Update race state after one iteration.  Rotates to the next finalist
+    that still has budget remaining.  Returns True while the race is still
+    active."""
+    if not progress.get('race_active'):
+        return False
+
+    finalists = progress['race_finalists']
+    race_iterations = progress.setdefault('race_iterations', {f: 0 for f in finalists})
+    race_scores = progress.setdefault('race_scores', {f: float('inf') for f in finalists})
+    race_attempts = progress.setdefault('race_best_attempts', {})
+    budget = progress.get('race_budget', RACE_BUDGET)
+
+    # The current iteration belongs to the current finalist.
+    current = finalists[progress.get('race_current_idx', 0)]
+    race_iterations[current] = race_iterations.get(current, 0) + 1
+
+    # Track best score for this finalist.
+    if composite_score < race_scores.get(current, float('inf')):
+        race_scores[current] = composite_score
+        race_attempts[current] = iteration
+
+    # Rotate to next finalist with remaining budget.
+    n = len(finalists)
+    for _ in range(n):
+        progress['race_current_idx'] = (progress.get('race_current_idx', 0) + 1) % n
+        nxt = finalists[progress['race_current_idx']]
+        if race_iterations.get(nxt, 0) < budget:
+            break
+
+    # Check if all finalists have exhausted their budget.
+    all_done = all(race_iterations.get(f, 0) >= budget for f in finalists)
+    if all_done:
+        _resolve_race(progress)
+        return False
+
+    progress['race_iterations'] = race_iterations
+    progress['race_scores'] = race_scores
+    progress['race_best_attempts'] = race_attempts
+    return True
+
+
+def _resolve_race(progress):
+    """Pick the race winner empirically and clean up race state."""
+    race_scores = progress.get('race_scores', {})
+    race_attempts = progress.get('race_best_attempts', {})
+    if not race_scores:
+        progress['race_active'] = False
+        return
+
+    winner_fam = min(race_scores, key=lambda f: race_scores[f])
+    winner_attempt = race_attempts.get(winner_fam)
+    best_score = race_scores[winner_fam]
+
+    seed_scores = progress.get('seed_scores', {})
+    raw_best = min(seed_scores.items(), key=lambda x: x[1])[0] if seed_scores else None
+
+    progress['best_attempt'] = winner_attempt
+    progress['best_score'] = best_score
+    progress['seed_winner_family'] = winner_fam
+    progress['seed_winner_tiebreak'] = True  # raced, not raw-picked
+    progress['race_winner'] = winner_fam
+    progress['race_active'] = False
+    progress['_race_announced'] = False
+
+    recommended = parse_target_field_str(
+        progress.get('_partials_path'), 'recommended_primary_archetype',
+    )
+    progress['formant_forced'] = (
+        winner_fam == 'formant_vocal' and recommended == 'formant_vocal'
+        and winner_fam != raw_best
+    )
 
 
 def parse_partials(path):
@@ -383,13 +539,13 @@ def build_seeded_templates(partials):
     physical = (
         "var sig;\n"
         f"sig = Pluck.ar(WhiteNoise.ar(0.1), Impulse.ar(0), {fundamental:.1f}.reciprocal, "
-        f"{fundamental:.1f}.reciprocal, 2.0, 0.5);\n"
+        f"{fundamental:.1f}.reciprocal, 2.0, decoderCoeff: 0.5);\n"
         "Out.ar(0, (sig * 0.3).dup);"
     )
 
     fm = (
         "var env, sig, modFreq, modIndex;\n"
-        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         f"modFreq = {mod_freq:.1f};\n"
         "modIndex = 3;\n"
         f"sig = SinOsc.ar({fundamental:.1f} + SinOsc.ar(modFreq, 0, modIndex * {fundamental:.1f}));\n"
@@ -402,7 +558,7 @@ def build_seeded_templates(partials):
     )
     resonator = (
         "var env, click, sig;\n"
-        "env = EnvGen.kr(Env.perc(0.001, 2.0), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         "click = Decay.ar(Impulse.ar(0), 0.003, WhiteNoise.ar(0.1));\n"
         f"sig = Mix([{ringz_voices}]);\n"
         "Out.ar(0, (sig * env * 0.2).dup);"
@@ -413,7 +569,7 @@ def build_seeded_templates(partials):
 
     granular = (
         "var env, sig, centerFreq;\n"
-        "env = EnvGen.kr(Env.perc(0.05, 1.5), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         f"centerFreq = {fundamental:.1f};\n"
         "sig = Mix(GrainSin.ar(2, Dust.ar(15), 0.08, centerFreq, 0, -1, 128));\n"
         "Out.ar(0, (sig * env * 0.3).dup);"
@@ -421,7 +577,7 @@ def build_seeded_templates(partials):
 
     waveshaper = (
         "var env, sig, feedback;\n"
-        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         "feedback = 0.5;\n"
         f"sig = SinOscFB.ar({fundamental:.1f}, feedback).tanh;\n"
         "Out.ar(0, (sig * env * 0.3).dup);"
@@ -429,7 +585,7 @@ def build_seeded_templates(partials):
 
     subtractive = (
         "var env, osc, sig, cutoff, modCutoff;\n"
-        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         "cutoff = 2000;\n"
         "modCutoff = cutoff * EnvGen.kr(Env.perc(0.05, 1.0));\n"
         f"osc = Mix(Saw.ar([{fundamental:.1f}, {fundamental * 1.007:.1f}]));\n"
@@ -439,7 +595,7 @@ def build_seeded_templates(partials):
 
     chaos = (
         "var env, chaos, sig, resFreq;\n"
-        "env = EnvGen.kr(Env.perc(0.01, 2.0), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         f"resFreq = {fundamental:.1f};\n"
         f"chaos = Mix([Gendy1.ar(1, 1, 0.3, 0.3, {fundamental * 0.5:.0f}, "
         f"{fundamental * 2:.0f}, 0.5, 0.5, 12), "
@@ -450,7 +606,7 @@ def build_seeded_templates(partials):
 
     formant = (
         "var env, sig, fund;\n"
-        "env = EnvGen.kr(Env.perc(0.05, 1.5), doneAction: 2);\n"
+        f"env = EnvGen.kr({env_perc}, doneAction: 2);\n"
         f"fund = {fundamental:.1f};\n"
         f"sig = Formant.ar(fund, {form2:.1f}, fund * 0.2) + "
         f"Formant.ar(fund, {form3:.1f}, fund * 0.25);\n"
@@ -734,6 +890,8 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     progress.setdefault('seed_scores', {})
     progress.setdefault('component_scores', {})
     progress.setdefault('seed_count', seed_count)
+    progress.setdefault('restarted_seeds', [])
+    progress.setdefault('plateau_escapes', [])
 
     # Per-component stem scores (sinusoidal/residual/transient) for this seed.
     if component_scores:
@@ -755,10 +913,16 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     if in_seeding_phase and arch:
         progress['seed_scores'][arch] = composite_score
 
-    is_new_best = (
-        progress['best_score'] is None
-        or composite_score < progress['best_score'] - IMPROVEMENT_EPS
-    )
+    # During an active race, per-finalist best tracking is handled by
+    # _advance_race — freeze the global best so a race iteration doesn't
+    # accidentally get promoted before the race resolves.
+    if progress.get('race_active'):
+        is_new_best = False
+    else:
+        is_new_best = (
+            progress['best_score'] is None
+            or composite_score < progress['best_score'] - IMPROVEMENT_EPS
+        )
     if is_new_best:
         progress['best_score'] = composite_score
         progress['best_attempt'] = iteration
@@ -796,15 +960,33 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
         for fam in seed_families_used:
             if fam not in progress['architectures_tried'] and fam != 'flucoma_template':
                 progress['architectures_tried'].append(fam)
-        apply_seed_winner_tiebreak(progress, partials_path)
+        # ponytail: stash partials_path so _resolve_race can read the analysis
+        # recommendation without threading it through every call.
+        progress['_partials_path'] = partials_path
+        # Try a short race among top finalists before crowning a winner.
+        # Falls through to normal tiebreak when there aren't enough close seeds.
+        if not _maybe_start_race(progress, partials_path):
+            apply_seed_winner_tiebreak(progress, partials_path)
         progress['iters_since_best'] = iteration - progress['best_attempt']
-        progress['delta_vs_best'] = composite_score - progress['best_score']
+        progress['delta_vs_best'] = (composite_score - progress['best_score']
+                                     if progress['best_score'] is not None else 0.0)
         # Resolve the per-component hybrid layer assignment from seed stem scores.
         progress['layer_assignment'] = compute_layer_assignment(progress, partials_path)
 
-    # Plateau detection is suppressed during seeding.
+    # Race phase management: during an active race, advance the race state and
+    # suppress normal plateau detection (the race is short by design — each
+    # finalist gets RACE_BUDGET iterations, so there isn't time to plateau).
+    if progress.get('race_active') and not in_seeding_phase:
+        _advance_race(progress, iteration, composite_score, arch)
+        # After _advance_race, if race just resolved, sync the best-attempt
+        # state for the next iteration's normal hill-climb tracking.
+        if not progress.get('race_active'):
+            progress['last_switch_iteration'] = iteration
+            progress['iters_since_best'] = 0
+
+    # Plateau detection is suppressed during seeding AND during the post-seed race.
     plateau = False
-    if not in_seeding_phase:
+    if not in_seeding_phase and not progress.get('race_active'):
         grace_ok = (iteration - progress['last_switch_iteration']) > SWITCH_GRACE
         plateau = (
             len(progress['scores']) - effective_seed_count >= PLATEAU_PATIENCE
@@ -814,18 +996,53 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
 
     progress['switch_architecture'] = None
     if plateau:
-        arch_switch = _next_untried_architecture(progress)
-        progress['switch_architecture'] = arch_switch
-        if arch_switch not in progress['architectures_tried']:
-            progress['architectures_tried'].append(arch_switch)
+        # When all 9 architecture families have been tried as plateau escapes
+        # and the bus still isn't converging (spectral_convergence > 1.0 or
+        # prolonged stall), adding another layer won't help — the catalog is
+        # exhausted. Instead, restart Phase B from the next-best seed family.
+        if _all_architectures_exhausted(progress):
+            restart = _pick_restart_seed(progress)
+            if restart:
+                restarted = progress.setdefault('restarted_seeds', [])
+                if restart[0] not in restarted:
+                    restarted.append(restart[0])
+                progress['restart_seed_family'] = restart[0]
+                progress['restart_seed_score'] = restart[1]
+                progress['switch_architecture'] = '__restart__'
+            # Fall through to normal arch switch if no restart candidates remain.
+        if progress['switch_architecture'] is None:
+            arch_switch = _next_untried_architecture(progress)
+            progress['switch_architecture'] = arch_switch
+            if arch_switch not in progress['architectures_tried']:
+                progress['architectures_tried'].append(arch_switch)
+            # Track plateau-escape layers separately from seed families.
+            # ``architectures_tried`` is pre-populated with seed families at
+            # the Phase A→B transition, but those were independent attempts,
+            # not layers in the current bus.  ``plateau_escapes`` counts only
+            # families added as hybrid layers during hill-climb plateaus.
+            plateau_escapes = progress.setdefault('plateau_escapes', [])
+            if arch_switch not in plateau_escapes:
+                plateau_escapes.append(arch_switch)
         progress['last_switch_iteration'] = iteration
 
     progress['plateau_detected'] = plateau
 
+    # ponytail: threshold convergence during Phase A would crown seed 1 and
+    # skip the other 9 architecture basins — finish on threshold only after
+    # seeding (and not mid-race).
     should_finish = (
         (max_iterations > 0 and iteration >= max_iterations)
-        or (convergence_threshold > 0 and composite_score < convergence_threshold)
+        or (
+            convergence_threshold > 0
+            and composite_score < convergence_threshold
+            and not in_seeding_phase
+            and not progress.get('race_active')
+        )
     )
+    # If we're finishing mid-race, resolve it immediately so we have a valid
+    # best_attempt for the finish workflow to use.
+    if should_finish and progress.get('race_active'):
+        _resolve_race(progress)
     progress['should_finish'] = should_finish
     progress['max_iterations'] = max_iterations
     progress['convergence_threshold'] = convergence_threshold
@@ -836,7 +1053,33 @@ def update_progress(output_dir, iteration, composite_score, seeded_templates=Non
     return progress
 
 
-def _bus_skeleton(layer_assignment, seed_count):
+def _read_attempt_core(filepath):
+    """Best-effort extract the signal chain from an attempt .scd file.
+
+    Returns (var_decls_line, signal_body, out_line) — the var declaration,
+    everything between it and Out.ar, and the Out.ar line itself.
+    Returns (None, None, None) when the file can't be parsed.
+    """
+    if not os.path.exists(filepath):
+        return None, None, None
+    with open(filepath) as f:
+        lines = f.readlines()
+    var_idx = None
+    out_idx = None
+    for i, line in enumerate(lines):
+        if line.strip().startswith('var ') and var_idx is None:
+            var_idx = i
+        if 'Out.ar' in line and out_idx is None:
+            out_idx = i
+    if var_idx is None:
+        return None, None, None
+    var_decls = lines[var_idx].strip()
+    signal_body = ''.join(lines[var_idx + 1:out_idx]).rstrip()
+    out_line = lines[out_idx].strip() if out_idx is not None else None
+    return var_decls, signal_body, out_line
+
+
+def _bus_skeleton(layer_assignment, next_attempt, output_dir=None):
     """Emit the Phase B decomposition-bus recipe the agent assembles.
 
     Each slot names the seed attempt whose signal core becomes that bus layer,
@@ -849,8 +1092,7 @@ def _bus_skeleton(layer_assignment, seed_count):
     present = [(s, l, g) for s, l, g in slot_order if s in layer_assignment]
     if not present:
         return ""
-    next_iter = seed_count + 1
-    lines = [f"=== PHASE B BUS SKELETON (build attempt_{next_iter}.scd) ==="]
+    lines = [f"=== PHASE B BUS SKELETON (build attempt_{next_attempt}.scd) ==="]
     lines.append("Assemble a decomposition bus: for each slot, lift the signal core")
     lines.append("(oscillator/resonator/noise block) from the named attempt, rename its")
     lines.append("final signal var to the layer var, STRIP its Out.ar line, gate with the")
@@ -863,23 +1105,88 @@ def _bus_skeleton(layer_assignment, seed_count):
         lines.append(f"  {slot:<11} layer <- attempt_{info['attempt']} "
                      f"(family: {info['family']})  gate: {gain}  // @param 0.0 1.0")
     lines.append("")
+    # Gather per-layer signal chains from the actual seed files.
+    layer_cores = {}
+    all_vars = set()
+    if output_dir:
+        for slot, layer, _ in present:
+            info = layer_assignment[slot]
+            fpath = os.path.join(output_dir, f"attempt_{info['attempt']}.scd")
+            var_decls, signal_body, _out_line = _read_attempt_core(fpath)
+            if var_decls and signal_body:
+                layer_cores[slot] = (info, var_decls, signal_body)
+                # Collect var names for the merged declaration.
+                for name in var_decls.replace('var ', '').replace(';', '').split(','):
+                    name = name.strip()
+                    if name and name != 'sig':
+                        all_vars.add(name)
+            else:
+                layer_cores[slot] = (info, None, None)
+
+    merged_vars = ', '.join(sorted(all_vars))
     gains = ', '.join(g for _, _, g in present)
     layers = ', '.join(l for _, l, _ in present)
-    lines.append(f"var {gains}, {layers}, sig, <merged layer vars>;")
+    if merged_vars:
+        lines.append(f"var {gains}, sig, {merged_vars};"
+                     if not layers else f"var {gains}, {layers}, sig, {merged_vars};")
+    else:
+        lines.append(f"var {gains}, {layers}, sig;")
     for _, _, g in present:
         lines.append(f"{g} = 0.4; // @param 0.0 1.0")
     for slot, layer, _ in present:
         info = layer_assignment[slot]
-        lines.append(f"{layer} = <signal core of attempt_{info['attempt']}>;")
+        core = layer_cores.get(slot)
+        if core and core[1] is not None:
+            _info, _var_decls, signal_body = core
+            lines.append(f"// --- {slot} layer: {info['family']} "
+                         f"(from attempt_{info['attempt']}) ---")
+            lines.append(signal_body)
+            lines.append(f"{layer} = sig; // rename signal core to bus layer")
+            lines.append("")
+        else:
+            lines.append(f"// {slot} layer: {info['family']} "
+                         f"(attempt_{info['attempt']}.scd not found — assemble manually)")
+            lines.append(f"{layer} = <signal core of attempt_{info['attempt']}>;")
     terms = ' + '.join(f"({l} * {g})" for _, l, g in present)
     lines.append(f"sig = {terms};")
     lines.append("Out.ar(0, (sig * 0.4).dup);")
     lines.append("")
-    lines.append(f"After writing attempt_{next_iter}.scd, run the FULL optimizer on it")
+    lines.append(f"After writing attempt_{next_attempt}.scd, run the FULL optimizer on it")
     lines.append(f"(budget from config.txt) — the ES tunes the layer gains jointly with")
     lines.append("each layer's internal params. This is the hybrid start; the hill-climb")
     lines.append("then refines the bus (swap/fill one slot per iteration).")
     return "\n".join(lines)
+
+
+def _format_layer_assignment_section(progress, output_dir,
+                                     next_attempt, component_scores_iteration):
+    """COMPONENT LAYER ASSIGNMENT + bus skeleton + optional signal-chain health."""
+    layer_assignment = progress.get('layer_assignment', {})
+    if not layer_assignment:
+        return []
+    lines = [
+        "",
+        "=== COMPONENT LAYER ASSIGNMENT (hybrid bus) ===",
+        "Each decomposition slot -> the seed archetype that best",
+        "matches that target component. Build the Phase B bus from these.",
+    ]
+    for slot in ['sinusoidal', 'residual', 'transient']:
+        info = layer_assignment.get(slot)
+        if not info:
+            continue
+        lines.append(
+            f"  {slot}: attempt {info['attempt']} "
+            f"(family: {info['family']}, component_score: {info['score']:.4f})"
+        )
+    lines.append(
+        "Phase B: sum these layers with a per-layer gain @param "
+        "(e.g. sig = sinusoidalLayer*g1 + residualLayer*g2 + transientLayer*g3)."
+    )
+    lines.append("")
+    skeleton = _bus_skeleton(layer_assignment, next_attempt, output_dir)
+    if skeleton:
+        lines.append(skeleton)
+    return lines
 
 
 def compute_layer_assignment(progress, partials_path=None):
@@ -915,16 +1222,23 @@ def compute_layer_assignment(progress, partials_path=None):
         if best is not None:
             assignment[slot] = {'attempt': best[0], 'family': best[1], 'score': best[2]}
 
-    # Formant-driven override for the body slot.
+    # Formant-driven override for the body slot — only when the formant seed's
+    # per-stem score is competitive with the best sinusoidal score.  Don't
+    # force a last-place formant into the body slot (ponytail: same threshold
+    # as pick_seed_winner / _maybe_start_race).
     recommended = parse_target_field_str(partials_path, 'recommended_primary_archetype')
     if recommended == 'formant_vocal':
         for attempt_str, fam in arch_map.items():
             if fam == 'formant_vocal':
                 prev = assignment.get('sinusoidal')
+                formant_sin_score = component_scores.get(attempt_str, {}).get('sinusoidal')
+                if (prev is not None and formant_sin_score is not None
+                        and formant_sin_score > prev['score'] + FORMANT_FORCE_MAX_GAP):
+                    break  # ponytail: formant stem too far behind — trust per-stem winner
                 assignment['sinusoidal'] = {
                     'attempt': int(attempt_str),
                     'family': 'formant_vocal',
-                    'score': prev['score'] if prev else 0.0,
+                    'score': formant_sin_score if formant_sin_score is not None else (prev['score'] if prev else 0.0),
                 }
                 assignment['_formant_override'] = True
                 break
@@ -960,9 +1274,145 @@ def _next_untried_architecture(progress):
     return ARCHITECTURE_ORDER[0]
 
 
+def _detect_noise_contradiction(mismatches, noise_excess, noise_deficit):
+    """Detect when the category-based noise label contradicts the band-wise
+    flatness signal, indicating noise is in the WRONG spectral region rather
+    than simply too much or too little.
+
+    Returns a dict {category_label, direction, instruction} or None.
+    """
+    if not mismatches:
+        return None
+    for cat_name, t_label, c_label, _suggestion, _dist in mismatches:
+        if cat_name != 'harmonic_to_noise_ratio':
+            continue
+        direction, _ = get_category_direction(cat_name, t_label, c_label)
+        # Category says attempt is NOISIER than target (label index higher).
+        # But noise_deficit says overall MORE TONAL — noise is concentrated in
+        # the mid band while missing from low/high where it matters more.
+        if direction == 'higher' and noise_deficit > 0.08:
+            return {
+                'type': 'noisy_category_tonal_overall',
+                'cat_label': c_label,
+                'target_label': t_label,
+                'instruction': (
+                    f"Category says '{c_label}' but band-wise analysis says more "
+                    f"TONAL — noise is in the WRONG spectral region. The mid-band "
+                    f"(500-2000Hz) has excess noise, but the low/high bands lack "
+                    f"broadband energy. RESHAPE, don't just reduce or add: "
+                    f"move noise energy from mid-band to low-band (LPF below 500Hz) "
+                    f"and/or high-band (HPF above 2000Hz). Replace mid-band noise "
+                    f"sources with tonal oscillators."
+                ),
+            }
+        # Category says attempt is MORE TONAL than target.
+        # But noise_excess says overall NOISIER — wrong-shape noise in low/high
+        # bands while the mid-band is too tonal.
+        if direction == 'lower' and noise_excess > 0.08:
+            return {
+                'type': 'tonal_category_noisy_overall',
+                'cat_label': c_label,
+                'target_label': t_label,
+                'instruction': (
+                    f"Category says '{c_label}' but band-wise analysis says more "
+                    f"NOISY — noise is in the WRONG spectral region. The low/high "
+                    f"bands have excess noise, but the mid-band lacks the target's "
+                    f"harmonic density. RESHAPE: filter/attenuate the low/high noise "
+                    f"and add tonal/harmonic content in the mid-band."
+                ),
+            }
+    return None
+
+
+def _pick_restart_seed(progress):
+    """Pick the best-scoring seed family that is NOT the current winner and
+    NOT already restarted. Returns (family_name, seed_score) or None."""
+    seed_scores = progress.get('seed_scores', {})
+    restarted = set(progress.get('restarted_seeds', []))
+    winner = progress.get('seed_winner_family')
+    if not seed_scores:
+        return None
+    candidates = [
+        (score, fam) for fam, score in seed_scores.items()
+        if fam != winner and fam not in restarted
+    ]
+    if not candidates:
+        return None
+    candidates.sort()
+    return (candidates[0][1], candidates[0][0])
+
+
+def _all_architectures_exhausted(progress):
+    """Return True when every family in ARCHITECTURE_ORDER has been tried
+    as a plateau-escape LAYER (not just as a seed), and the best score is
+    still stuck (spec_conv > 1.0 or iters_since_best exceeds 2x the normal
+    patience).
+
+    Uses ``plateau_escapes`` (families explicitly added as hybrid layers
+    during hill-climb plateaus), NOT ``architectures_tried`` which also
+    includes seed families from Phase A — seeds were independent attempts,
+    not layers in the current bus.
+    """
+    plateau_escapes = set(progress.get('plateau_escapes', []))
+    if len(plateau_escapes) < len(ARCHITECTURE_ORDER):
+        return False
+    # Only declare exhaustion when the bus is genuinely not converging: either
+    # the spectra are still nearly orthogonal or we've been stuck for a while
+    # after the last family was tried.
+    spec_conv = progress.get('best_spec_conv', 0.0)
+    if spec_conv > 1.0:
+        return True
+    return progress.get('iters_since_best', 0) >= PLATEAU_PATIENCE + 2
+
+
+def _step_phase_label(progress, iteration):
+    """Human-readable phase for step N in reports."""
+    if not progress:
+        return 'run'
+    seed_count = progress.get('seed_count', 0)
+    if seed_count > 0 and iteration <= seed_count:
+        return 'seeding'
+    if progress.get('race_active'):
+        return 'race'
+    if seed_count > 0 and iteration == seed_count + 1:
+        return 'bus'
+    return 'hill-climb'
+
+
+
+def run_self_check_race_report():
+    """Verify RACE FINISHED emits once and includes layer assignment."""
+    progress = {
+        'race_winner': 'flucoma_template',
+        'race_active': False,
+        '_race_announced': False,
+        'race_scores': {'flucoma_template': 0.526, 'fm_synthesis': 0.567},
+        'best_score': 0.526,
+        'best_attempt': 13,
+        'layer_assignment': {
+            'sinusoidal': {'attempt': 1, 'family': 'flucoma_template', 'score': 0.301},
+            'residual': {'attempt': 4, 'family': 'fm_synthesis', 'score': 0.601},
+        },
+        'iteration': 19,
+        'seed_count': 10,
+        'scores': [0.5] * 19,
+    }
+    conv = {'composite_score': 0.534}
+    r1 = format_report(conv, [], [], progress=progress, output_dir=None)
+    assert 'RACE FINISHED' in r1, 'first call should announce race'
+    assert 'COMPONENT LAYER ASSIGNMENT' in r1, 'layer block missing on race finish'
+    assert 'attempt_20.scd' in r1, 'bus skeleton should target iteration+1'
+    assert progress.get('_race_announced'), 'flag should flip after first emit'
+    r2 = format_report(conv, [], [], progress=progress, output_dir=None)
+    assert 'RACE FINISHED' not in r2, 'second call should not re-announce'
+    print('self-check-race-report: ok')
+    return 0
+
+
 def format_report(convergence, mismatches, top_deltas, prev_code=None,
                   progress=None, best_code=None, seeded_templates=None,
-                  max_iterations=0, convergence_threshold=0.0, partials_path=None):
+                  max_iterations=0, convergence_threshold=0.0, partials_path=None,
+                  output_dir=None):
     lines = []
 
     composite = convergence.get('composite_score', convergence.get('spectral_convergence', 0))
@@ -983,6 +1433,10 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     if progress:
         max_iterations = progress.get('max_iterations', max_iterations)
         convergence_threshold = progress.get('convergence_threshold', convergence_threshold)
+        phase = _step_phase_label(progress, iteration)
+        if max_iterations > 0 and iteration > 0:
+            lines.insert(0, f"=== STEP {iteration}/{max_iterations} ({phase}) ===")
+            lines.insert(1, "")
 
     should_finish = progress.get('should_finish', False) if progress else (
         (max_iterations > 0 and iteration >= max_iterations)
@@ -990,11 +1444,14 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     )
 
     if progress and should_finish:
+        # If a race is still active, resolve it immediately so we have a winner.
+        if progress.get('race_active'):
+            _resolve_race(progress)
         best_attempt = progress.get('best_attempt')
         lines.append("=== MANDATORY FINISH ===")
         if max_iterations > 0 and iteration >= max_iterations:
             lines.append(
-                f"Iteration budget exhausted: N={iteration}, max_iterations={max_iterations}."
+                f"Step budget exhausted: N={iteration}, max_iterations={max_iterations}."
             )
             lines.append(f"Do NOT write attempt_{iteration + 1}.scd or any further attempts.")
         elif convergence_threshold > 0 and composite < convergence_threshold:
@@ -1036,64 +1493,99 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                 f"(family: {arch_map.get(str(iteration), 'unknown')}, "
                 f"score: {composite:.4f})."
             )
+            if (convergence_threshold > 0 and composite < convergence_threshold
+                    and iteration < effective_seed_count):
+                lines.append(
+                    f"(Score below threshold {convergence_threshold} — seeding "
+                    f"continues; {effective_seed_count - iteration} seed(s) remain.)"
+                )
             if is_final_seed:
-                # Announce the winner (may differ from raw best via tiebreak).
-                winner_fam = progress.get('seed_winner_family') or arch_map.get(
-                    str(best_attempt), 'unknown'
-                )
-                lines.append("")
-                lines.append(
-                    f"ALL SEEDS EVALUATED. WINNER: attempt {best_attempt} "
-                    f"(family: {winner_fam}, score: {best_score:.4f})."
-                )
-                if progress.get('formant_forced'):
-                    raw_best = min(seed_scores.items(), key=lambda x: x[1])
-                    lines.append(
-                        f"(FORMANT PROMOTION: {winner_fam} forced as Phase B base over raw-best "
-                        f"{raw_best[0]} ({raw_best[1]:.4f}). The target has strong formants + a "
-                        "pitched source, so additive sines — even if they seed-score better — "
-                        "cannot reproduce it. Develop the formant_vocal body; do NOT fall back to "
-                        "flucoma_template.)"
-                    )
-                elif progress.get('seed_winner_tiebreak'):
-                    raw_best = min(seed_scores.items(), key=lambda x: x[1])
-                    lines.append(
-                        f"(Tiebreak: {winner_fam} preferred over {raw_best[0]} "
-                        f"({raw_best[1]:.4f}) — scores within {SEED_TIEBREAK_EPS})."
-                    )
-                lines.append(
-                    "NEXT STEP (Phase B): Re-run optimize_params.py on "
-                    f"attempt_{best_attempt}.scd with the FULL optimizer_budget "
-                    f"(from config.txt), then continue the hill-climb from that "
-                    "attempt as your BASE CODE."
-                )
-                if seed_scores:
-                    ranked = sorted(seed_scores.items(), key=lambda x: x[1])
-                    lines.append("Seed ranking (best to worst):")
-                    for rank, (fam, sc) in enumerate(ranked, 1):
-                        lines.append(f"  {rank}. {fam}: {sc:.4f}")
+                if progress.get('race_active'):
+                    # Race is active — don't crown a winner yet.
+                    # Emit race instructions instead of normal Phase B.
+                    finalists = progress.get('race_finalists', [])
+                    race_iterations = progress.get('race_iterations', {})
+                    budget = progress.get('race_budget', RACE_BUDGET)
+                    current = finalists[progress.get('race_current_idx', 0)] if finalists else '?'
+                    race_scores = progress.get('race_scores', {})
+                    race_attempts = progress.get('race_best_attempts', {})
 
-                layer_assignment = progress.get('layer_assignment', {})
-                if layer_assignment:
                     lines.append("")
-                    lines.append("=== COMPONENT LAYER ASSIGNMENT (hybrid bus) ===")
-                    lines.append("Each decomposition slot -> the seed archetype that best")
-                    lines.append("matches that target component. Build the Phase B bus from these.")
-                    for slot in ['sinusoidal', 'residual', 'transient']:
-                        info = layer_assignment.get(slot)
-                        if not info:
-                            continue
+                    lines.append("=== POST-SEED RACE (empirical finalist playoff) ===")
+                    lines.append(
+                        f"Instead of crowning one seed winner, racing top "
+                        f"{len(finalists)} finalists for {budget} iterations each "
+                        f"(Shier 2021: short warm-started runs predict full-run "
+                        f"convergence at ~1/10 the cost)."
+                    )
+                    lines.append("")
+                    lines.append(f"  Finalists: {', '.join(finalists)}")
+                    for f in finalists:
+                        done = race_iterations.get(f, 0)
+                        best_s = race_scores.get(f, float('inf'))
+                        att = race_attempts.get(f, '?')
+                        bar = '█' * done + '░' * (budget - done)
                         lines.append(
-                            f"  {slot}: attempt {info['attempt']} "
-                            f"(family: {info['family']}, component_score: {info['score']:.4f})"
+                            f"  {f}: [{bar}] {done}/{budget}  "
+                            f"(best: {best_s:.4f} @ attempt {att})"
+                        )
+                    lines.append("")
+                    lines.append(
+                        f"NEXT: Work on the CURRENT finalist [{current}] for ONE step. "
+                        f"Read its seed template from current_run/seed_templates.txt "
+                        f"(or reuse its last attempt), run ONE optimizer cycle, then "
+                        f"re-evaluate. The race rotates through finalists round-robin."
+                    )
+                    # Show seed scores as reference.
+                    if seed_scores:
+                        ranked = sorted(seed_scores.items(), key=lambda x: x[1])
+                        lines.append("")
+                        lines.append("Seed ranking (reference):")
+                        for rank, (fam, sc) in enumerate(ranked, 1):
+                            mark = ' ← RACE' if fam in finalists else ''
+                            lines.append(f"  {rank}. {fam}: {sc:.4f}{mark}")
+                else:
+                    # No race — normal winner announcement.
+                    winner_fam = progress.get('seed_winner_family') or arch_map.get(
+                        str(best_attempt), 'unknown'
+                    )
+                    lines.append("")
+                    lines.append(
+                        f"ALL SEEDS EVALUATED. WINNER: attempt {best_attempt} "
+                        f"(family: {winner_fam}, score: {best_score:.4f})."
+                    )
+                    if progress.get('formant_forced'):
+                        raw_best = min(seed_scores.items(), key=lambda x: x[1])
+                        lines.append(
+                            f"(FORMANT PROMOTION: {winner_fam} forced as Phase B base over raw-best "
+                            f"{raw_best[0]} ({raw_best[1]:.4f}). The target has strong formants + a "
+                            "pitched source, so additive sines — even if they seed-score better — "
+                            "cannot reproduce it. Develop the formant_vocal body; do NOT fall back to "
+                            "flucoma_template.)"
+                        )
+                    elif progress.get('seed_winner_tiebreak'):
+                        raw_best = min(seed_scores.items(), key=lambda x: x[1])
+                        lines.append(
+                            f"(Tiebreak: {winner_fam} preferred over {raw_best[0]} "
+                            f"({raw_best[1]:.4f}) — scores within {SEED_TIEBREAK_EPS})."
                         )
                     lines.append(
-                        "Phase B: sum these layers with a per-layer gain @param "
-                        "(e.g. sig = sinusoidalLayer*g1 + residualLayer*g2 + transientLayer*g3)."
+                        "NEXT STEP (Phase B): Re-run optimize_params.py on "
+                        f"attempt_{best_attempt}.scd with the FULL optimizer_budget "
+                        f"(from config.txt), then continue the hill-climb from that "
+                        "attempt as your BASE CODE."
                     )
+                    if seed_scores:
+                        ranked = sorted(seed_scores.items(), key=lambda x: x[1])
+                        lines.append("Seed ranking (best to worst):")
+                        for rank, (fam, sc) in enumerate(ranked, 1):
+                            lines.append(f"  {rank}. {fam}: {sc:.4f}")
 
-                    lines.append("")
-                    lines.append(_bus_skeleton(layer_assignment, effective_seed_count))
+
+                    lines.extend(_format_layer_assignment_section(
+                        progress, output_dir,
+                        effective_seed_count + 1, iteration,
+                    ))
             else:
                 next_seed_idx = iteration + 1
                 next_fam = (SEED_FAMILIES[next_seed_idx - 1]
@@ -1107,6 +1599,69 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                     "frequencies. Add 3-8 // @param annotations."
                 )
             lines.append("")
+        elif progress.get('race_active'):
+            # Race in progress — tell the agent which finalist to work on.
+            finalists = progress.get('race_finalists', [])
+            race_iterations = progress.get('race_iterations', {})
+            race_scores = progress.get('race_scores', {})
+            budget = progress.get('race_budget', RACE_BUDGET)
+            current = finalists[progress.get('race_current_idx', 0)] if finalists else '?'
+            current_attempt = progress.get('race_best_attempts', {}).get(current)
+
+            lines.append("=== RACE IN PROGRESS ===")
+            for f in finalists:
+                done = race_iterations.get(f, 0)
+                best_s = race_scores.get(f, float('inf'))
+                bar = '█' * done + '░' * (budget - done)
+                lines.append(f"  {f}: [{bar}] {done}/{budget}  (best: {best_s:.4f})")
+            lines.append("")
+            lines.append(
+                f"CURRENT: {current} ({race_iterations.get(current, 0)}/{budget} done). "
+                f"Improve it for ONE step, then re-evaluate."
+            )
+            if current_attempt:
+                lines.append(
+                    f"  Base: attempt_{current_attempt}.scd — read it, apply ONE "
+                    f"targeted change (tune frequencies/bandwidths/balance), "
+                    f"write attempt_{iteration + 1}.scd."
+                )
+            else:
+                lines.append(
+                    f"  Base: seed template from current_run/seed_templates.txt "
+                    f"(family: {current}) — write a fresh attempt_{iteration + 1}.scd "
+                    f"with 3-8 // @param annotations."
+                )
+            lines.append(
+                "  Run optimizer for ONE budget cycle, then re-evaluate. "
+                "The race rotates finalists automatically."
+            )
+        elif (progress.get('race_winner') and not progress.get('race_active')
+              and not progress.get('_race_announced')):
+            # Race just resolved — announce the empirical winner (once).
+            winner_fam = progress['race_winner']
+            winner_score = progress.get('best_score', 0)
+            winner_attempt = progress.get('best_attempt')
+            race_scores = progress.get('race_scores', {})
+            lines.append("=== RACE FINISHED — EMPIRICAL WINNER ===")
+            for f, s in sorted(race_scores.items(), key=lambda x: x[1]):
+                mark = ' ← WINNER' if f == winner_fam else ''
+                lines.append(f"  {f}: {s:.4f}{mark}")
+            lines.append("")
+            lines.append(
+                f"WINNER: {winner_fam} (attempt {winner_attempt}, score {winner_score:.4f}). "
+                f"Other finalists archived — seed templates remain available for bus layer assembly."
+            )
+            lines.append(
+                f"NEXT STEP (Phase B): Re-run optimize_params.py on "
+                f"attempt_{winner_attempt}.scd with the FULL optimizer_budget "
+                f"(from config.txt), then continue the hill-climb from that "
+                "attempt as your BASE CODE."
+            )
+            lines.extend(_format_layer_assignment_section(
+                progress, output_dir,
+                iteration + 1, effective_seed_count,
+            ))
+            progress['_race_announced'] = True
         elif not should_finish:
             lines.append("=== NEXT-ATTEMPT INSTRUCTION (HILL-CLIMB) ===")
             if progress.get('plateau_detected'):
@@ -1168,7 +1723,28 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
     noise_deficit = convergence.get('noise_deficit', 0.0)
     f0 = parse_target_field(partials_path, 'fundamental_freq')
     resid_cent = parse_target_field(partials_path, 'residual_spectral_centroid')
-    if noise_excess > 0.12:
+
+    # Detect when the harmonic_to_noise_ratio category label contradicts the
+    # band-wise flatness signal. This means noise is in the WRONG spectral
+    # region — e.g. concentrated in mid-band (triggering a "noisy" category)
+    # but missing from low/high (triggering a "too tonal" deficit). The fix
+    # is RESHAPE, not just add or reduce.
+    noise_contradiction = _detect_noise_contradiction(
+        mismatches, noise_excess, noise_deficit
+    )
+
+    if noise_contradiction:
+        lines.append("=== RESHAPE NOISE (contradiction resolved) ===")
+        lines.append(noise_contradiction['instruction'])
+        lines.append("")
+        lines.append(
+            "IGNORE conflicting advice below: the category mismatch says "
+            f"'{noise_contradiction['cat_label']}' and the band-wise warning "
+            "may suggest the opposite. Follow the RESHAPE instruction above — "
+            "it reconciles both signals."
+        )
+        lines.append("")
+    elif noise_excess > 0.12:
         lines.append("=== OVER-NOISE WARNING (high priority) ===")
         lines.append(
             f"noise_excess={noise_excess:.3f}: the attempt is FLATTER (noisier) than the "
@@ -1245,6 +1821,66 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                 "prevents a reduce-noise dead-end from ending the run early."
             )
             lines.append("")
+        elif progress.get('switch_architecture') == '__restart__':
+            restart_fam = progress.get('restart_seed_family', 'unknown')
+            restart_score = progress.get('restart_seed_score', 0.0)
+            winner_fam = progress.get('seed_winner_family', 'unknown')
+            restarted = progress.get('restarted_seeds', [])
+            lines.append("=== PLATEAU DETECTED — ARCHITECTURES EXHAUSTED (restart Phase B) ===")
+            lines.append(
+                f"No new best for {progress.get('iters_since_best', 0)} iterations "
+                f"(best is attempt {best_attempt} at {best_score:.4f}). "
+                f"All {len(ARCHITECTURE_ORDER)} architecture families have been tried "
+                f"(tried: {', '.join(tried) if tried else 'none'})."
+            )
+            if best_spec_conv > 1.0:
+                lines.append(
+                    f"The best bus still has spectral_convergence = {best_spec_conv:.3f} "
+                    f"(> 1.0 = fundamentally wrong spectral structure — the current "
+                    f"architecture cannot reproduce the target's spectrum)."
+                )
+            lines.append(
+                "Adding more layers to this bus will not help — the catalog of "
+                "architectures is exhausted. Instead, RESTART Phase B from a "
+                "DIFFERENT seed family as the new base:"
+            )
+            lines.append("")
+            lines.append(f"  RESTART SEED: {restart_fam} (seed score: {restart_score:.4f})")
+            lines.append(f"  Previous winner: {winner_fam}")
+            lines.append(f"  Already restarted: {', '.join(restarted) if restarted else 'none'}")
+            lines.append("")
+            lines.append("STEPS:")
+            lines.append(
+                f"  1. Read the {restart_fam} block from current_run/seed_templates.txt"
+            )
+            lines.append(
+                f"  2. Write a fresh attempt_{progress.get('iteration', 0) + 1}.scd from "
+                f"that template (NOT from the current BASE CODE)"
+            )
+            lines.append(
+                f"  3. Add 3-8 // @param annotations (use frequencies from "
+                f"target_partials.txt dominant partials)"
+            )
+            lines.append(
+                f"  4. Run the FULL optimizer budget from config.txt on this fresh seed"
+            )
+            lines.append(
+                f"  5. This becomes the NEW Base Code for the next hill-climb iteration"
+            )
+            lines.append("")
+            lines.append(
+                "IMPORTANT: Do NOT copy or layer onto the current bus. This is a "
+                "CLEAN-SLATE RESTART — the old bus is architecturally exhausted and "
+                "cannot reach the target (spectral_convergence > 1.0 = wrong model). "
+                "Treat this as a new Phase B starting from a different seed."
+            )
+            lines.append("")
+            # Show the template code for the restart seed.
+            restart_code = templates.get(restart_fam, ARCHITECTURE_TEMPLATES.get(restart_fam, ''))
+            if restart_code:
+                lines.append(f"=== {restart_fam} TEMPLATE (copy as starting point) ===")
+                lines.append(restart_code)
+                lines.append("")
         else:
             lines.append("=== PLATEAU DETECTED — ADD A LAYER (do NOT restart) ===")
             lines.append(
@@ -1252,6 +1888,11 @@ def format_report(convergence, mismatches, top_deltas, prev_code=None,
                 f"(best is attempt {best_attempt} at {best_score:.4f})."
             )
             lines.append(f"Architectures already in the bus / tried: {', '.join(tried) if tried else 'none'}.")
+            if poor_hints:
+                lines.append(
+                    "Signal-chain health: POOR layers being carried by the sum — "
+                    f"consider replacing: {', '.join(poor_hints)}."
+                )
             if seed_scores and arch_name in seed_scores:
                 lines.append(
                     f"Adding '{arch_name}' as a new parallel layer (measured seed score: "
@@ -1356,7 +1997,13 @@ def main():
     parser.add_argument('--stems-dir', default=None,
                         help='Directory of decomposition stems (sines/residual/percussive.wav). '
                              'Defaults to <progress-dir>/stems. Used for per-component seed scoring.')
+    parser.add_argument('--self-check-race-report', action='store_true',
+                        help='Verify RACE FINISHED one-shot + layer assignment; exit.')
     args = parser.parse_args()
+
+    if args.self_check_race_report:
+        sys.exit(run_self_check_race_report())
+
 
     if args.dump_templates:
         partials_path = args.partials

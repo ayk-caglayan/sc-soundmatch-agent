@@ -257,6 +257,97 @@ def compute_inharmonicity(partials, f0):
     return float(np.mean(devs))
 
 
+def estimate_envelope(source_path, sr=44100):
+    """Extract amplitude envelope shape from target audio (approach #8).
+
+    Returns a dict with keys suitable for seeding Env.perc/Env.adsr params:
+      - attack_sec: time from onset to peak amplitude
+      - decay_sec: time from peak to half-amplitude
+      - release_sec: time from half-amplitude to silence
+      - peak_frac: fraction of total duration where peak occurs
+      - env_shape: one of 'percussive', 'plucked', 'sustained', 'swell', 'flat'
+      - sustain_level: RMS after peak / peak RMS (0..1)
+
+    Used by compare.py's build_seeded_templates to replace the hardcoded
+    ``Env.perc(0.01, 2.0)`` with envelope params matched to the target.
+    """
+    audio, file_sr = sf.read(source_path)
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    if file_sr != sr:
+        audio = librosa.resample(audio, orig_sr=file_sr, target_sr=sr)
+    duration = len(audio) / sr
+    if duration < 0.1:
+        return None
+
+    rms = librosa.feature.rms(y=audio, frame_length=2048, hop_length=512)[0]
+    if rms.size < 3 or np.max(rms) < 1e-9:
+        return None
+
+    # Smooth the envelope
+    kernel = max(3, len(rms) // 20)
+    rms_smooth = np.convolve(rms, np.ones(kernel) / kernel, mode='same')
+
+    peak_idx = int(np.argmax(rms_smooth))
+    peak_time = peak_idx * 512 / sr
+    peak_val = rms_smooth[peak_idx]
+
+    # Attack: first crossing of 10% peak → peak
+    onset_idx = 0
+    for i in range(peak_idx):
+        if rms_smooth[i] >= 0.1 * peak_val:
+            onset_idx = i
+            break
+    attack_sec = max(0.001, peak_time - onset_idx * 512 / sr)
+
+    # Decay: peak → half-amplitude
+    half_idx = peak_idx
+    for i in range(peak_idx, len(rms_smooth)):
+        if rms_smooth[i] <= 0.5 * peak_val:
+            half_idx = i
+            break
+    decay_sec = max(0.001, (half_idx - peak_idx) * 512 / sr)
+
+    # Release: half-amplitude → 5% peak
+    end_idx = len(rms_smooth) - 1
+    for i in range(half_idx, len(rms_smooth)):
+        if rms_smooth[i] <= 0.05 * peak_val:
+            end_idx = i
+            break
+    release_sec = max(0.001, (end_idx - half_idx) * 512 / sr)
+
+    peak_frac = min(peak_time / duration, 0.95) if duration > 0 else 0.3
+
+    # Sustain level: RMS in second half / peak
+    half_point = len(rms) // 2
+    if half_point > 0:
+        sustain_rms = float(np.mean(rms[half_point:]))
+        sustain_level = min(1.0, sustain_rms / (peak_val + 1e-12))
+    else:
+        sustain_level = 0.3
+
+    # Classify shape
+    if attack_sec < 0.03 and decay_sec < 0.15:
+        env_shape = 'percussive'
+    elif attack_sec < 0.05 and sustain_level < 0.3:
+        env_shape = 'plucked'
+    elif attack_sec > 0.15:
+        env_shape = 'swell'
+    elif sustain_level > 0.6:
+        env_shape = 'sustained'
+    else:
+        env_shape = 'flat'
+
+    return {
+        'attack_sec': round(attack_sec, 3),
+        'decay_sec': round(decay_sec, 3),
+        'release_sec': round(release_sec, 3),
+        'peak_frac': round(peak_frac, 3),
+        'env_shape': env_shape,
+        'sustain_level': round(sustain_level, 3),
+    }
+
+
 def estimate_formants(source_path, sr=44100, order=14, max_formants=4):
     """Estimate vocal-tract resonance (formant) frequencies via LPC.
 
@@ -314,14 +405,16 @@ def build_archetype_recommendation(partials, decomp, f0, harmonicity,
     strong_formants = len(formants) >= 2
 
     # Seed-family recommendation (parseable by compare.py for Phase B promotion).
-    # A vocal/instrumental body defined by formants cannot be reproduced by
-    # additive sines — promote formant_vocal so it wins the Phase B base.
-    if strong_formants and f0 and harmonicity > 0.4:
+    # Inharmonic sounds get resonator_bank first — formant_vocal is for truly
+    # harmonic pitched sources (vowels, not flutes).  A vocal/instrumental body
+    # defined by formants cannot be reproduced by additive sines, so promote
+    # formant_vocal when the target is harmonic AND has strong formants.
+    if f0 and inh >= 0.03:
+        seed_family = 'resonator_bank'
+    elif strong_formants and f0 and harmonicity > 0.4:
         seed_family = 'formant_vocal'
     elif f0 and harmonicity > 0.4 and inh < 0.03:
         seed_family = 'subtractive'
-    elif f0 and inh >= 0.03:
-        seed_family = 'resonator_bank'
     elif resid_pct > 40:
         seed_family = 'chaos_noise'
     else:
@@ -541,7 +634,8 @@ def generate_templates(partials, decomp, target_duration):
 
 
 def format_output(partials, decomp, templates, f0=None, harmonicity=0.0,
-                  inharmonicity=None, formants=None, recommendation=None):
+                  inharmonicity=None, formants=None, recommendation=None,
+                  envelope=None):
     lines = []
 
     lines.append("=== DECOMPOSITION SUMMARY ===")
@@ -565,6 +659,16 @@ def format_output(partials, decomp, templates, f0=None, harmonicity=0.0,
     if formants:
         fstr = ", ".join(f"{f:.0f} Hz (bw {b:.0f})" for f, b in formants)
         lines.append(f"formants: {fstr}")
+
+    if envelope:
+        lines.append("")
+        lines.append("=== AMPLITUDE ENVELOPE (modulation-aware seeding) ===")
+        lines.append(f"envelope_shape: {envelope['env_shape']}")
+        lines.append(f"envelope_attack_sec: {envelope['attack_sec']}")
+        lines.append(f"envelope_decay_sec: {envelope['decay_sec']}")
+        lines.append(f"envelope_release_sec: {envelope['release_sec']}")
+        lines.append(f"envelope_peak_frac: {envelope['peak_frac']}")
+        lines.append(f"envelope_sustain_level: {envelope['sustain_level']}")
 
     if partials:
         avg_drift = np.mean([p['freq_std'] for p in partials[:5]])
@@ -622,10 +726,11 @@ def main():
     decomp = analyze_decomposition(args.audio_file, sr=args.sample_rate,
                                    stems_dir=stems_dir)
 
-    print("Estimating F0 / harmonicity / inharmonicity / formants...")
+    print("Estimating F0 / harmonicity / inharmonicity / formants / envelope...")
     f0, harmonicity = estimate_f0(args.audio_file, sr=args.sample_rate)
     inharmonicity = compute_inharmonicity(partials, f0)
     formants = estimate_formants(args.audio_file, sr=args.sample_rate)
+    envelope = estimate_envelope(args.audio_file, sr=args.sample_rate)
     recommendation = build_archetype_recommendation(
         partials, decomp, f0, harmonicity, inharmonicity, formants
     )
@@ -635,7 +740,8 @@ def main():
 
     output = format_output(partials, decomp, templates, f0=f0,
                            harmonicity=harmonicity, inharmonicity=inharmonicity,
-                           formants=formants, recommendation=recommendation)
+                           formants=formants, recommendation=recommendation,
+                           envelope=envelope)
 
     if args.output:
         with open(args.output, 'w') as f:

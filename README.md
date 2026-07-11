@@ -122,10 +122,21 @@ pip install numpy scipy librosa soundfile
               --model ollama/qwen3.6:latest
 ```
 
+Resume an interrupted run or extend the step budget after hitting the limit (counter continues — step 92, 93, …):
+
+```bash
+# Continue from where you left off
+./launcher.sh --resume runs/20260711_144314_hey
+
+# Hit max_iter=91; extend to 120 and keep going
+./launcher.sh --resume runs/20260711_135230_hey --max-iter 120
+```
+
 | Flag | Default | Description |
 |---|---|---|
-| `--target` | *(required)* | Path to target WAV file |
-| `--max-iter` | 85 | Maximum refinement iterations |
+| `--target` | *(required for new runs)* | Path to target WAV file |
+| `--resume` | — | Existing run dir (name, `runs/…`, or absolute path) |
+| `--max-iter` | 91 | Max scored steps; on resume, extends budget if `N` > current step and > config `max_iterations` |
 | `--threshold` | 0.4 | Convergence goal (`composite_score` below this) |
 | `--optimizer-budget` | 30 | Max NRT renders per parameter-optimization step |
 | `--model` | `ollama/qwen3-coder-next:latest` | OpenClaw model id |
