@@ -23,3 +23,8 @@ __pycache__/
 .env
 *.env
 openclaw.json
+
+# Local synth-matching research corpus
+/synth-effect-matching/
+/SynthMatch_JordieShier2021synthesizer_thesis.pdf
+/SynthMatch-ModulationDiscovery-DDSP-2510.06204v1.pdf
