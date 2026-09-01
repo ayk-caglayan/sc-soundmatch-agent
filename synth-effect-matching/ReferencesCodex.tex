@@ -1,0 +1,49 @@
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{cite}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\begin{document}
+
+\section*{Annotated Bibliography}
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Nonlinear Parameter Estimation for a Recurrent Neural Network Model of the Bowed String (Alvin, 2002).} Presents an RNN that captures bowed-string dynamics and fits its nonlinear parameters directly from performance data, yielding more realistic articulations than manual calibration.
+    \item \textbf{wav2shape: From Sound to Rigid-Body Dynamics (2007).} Learns to infer rigid-body modal parameters from audio, bridging measured vibrations and physical simulations so that object geometry and material can be estimated from their impulse responses.
+    \item \textbf{Synthesizing Bowed Strings Using Generative Models (2010).} Uses probabilistic generative models to simulate bowed-string timbre and articulations, allowing controllable synthesis that remains faithful to measured acoustic behaviors.
+    \item \textbf{Bayesian Nonparametric Approach to the Estimation of Parameters in Sound Synthesis Models (2014).} Introduces Bayesian nonparametric priors for estimating synthesis parameters, providing uncertainty-aware reconstructions that better explain sparse or noisy observations.
+    \item \textbf{Inverting Synthesizers Using Learned Reverse Controls (DeepSynthPE) (2017).} Trains neural networks to map audio features back to subtractive-synth controls, demonstrating rapid parameter inversion that outperforms hand-designed search heuristics.
+    \item \textbf{Synthesizer Sound Matching Using Differentiable DSP (Shier, 2017).} Proposes fully differentiable signal-processing blocks with gradient descent on parameters, enabling accurate resynthesis of target sounds under architectural and perceptual constraints.
+    \item \textbf{Automatic Programming of VST Sound Synthesizers Using Deep Networks (2018).} Combines convolutional encoders and differentiable synthesizer proxies to predict VST preset parameters directly from audio exemplars, automating preset design.
+    \item \textbf{InverSynth: Deep Estimation of Synthesizer Parameter Configurations from Audio Signals (2018).} Employs a convolutional encoder and multi-headed regressors to recover multiple preset candidate solutions, improving robustness to non-unique inversions.
+    \item \textbf{Flow Synthesizer: Universal Audio Synthesizer Control with Normalizing Flows (2019).} Applies conditional normalizing flows to learn bijective mappings between audio features and synthesizer parameters, enabling sampling of diverse yet accurate presets.
+    \item \textbf{DeepAFx: Differentiable Signal Processing with Black-Box Audio Effects (2021).} Wraps legacy effects in differentiable surrogates and jointly trains control networks, unlocking gradient-based learning even when the original plugin is not differentiable.
+    \item \textbf{Synthesizer Sound Matching with Differentiable DSP (ISMIR-21).} Extends DDSP-based architectures with perceptual losses and stability tricks to more faithfully reconstruct target instrument tones across instrument families.
+    \item \textbf{Differentiable Time-Frequency Scattering for Audio Synthesis (2022).} Integrates scattering transforms into differentiable synthesis pipelines, allowing parameter updates driven by stable, multiscale feature comparisons.
+    \item \textbf{Sound2Synth: Interpreting Sound via FM Synthesizer Parameters Estimation (2022).} Focuses on FM synthesis, showing that a carefully designed neural estimator can recover carrier/modulator settings that match target spectra with interpretable controls.
+    \item \textbf{DeepAFx-ST: Style Transfer of Audio Effects with Differentiable Signal Processing (2022).} Uses a multi-style embedding and differentiable effect stack to transfer the processing style of one audio clip onto another while preserving content.
+    \item \textbf{TorchSynth: One Billion Audio Sounds at a Time (2022).} Introduces a GPU-native differentiable synthesizer suite for rapid data generation and auto-differentiation, facilitating large-scale learning experiments.
+    \item \textbf{Improving Semi-Supervised Differentiable Synthesizer Sound Matching (2023).} Demonstrates that unlabeled audio plus pseudo-labeling significantly boosts DDSP parameter inversion accuracy in low-data settings.
+    \item \textbf{Mesostructures for Sound Synthesis (2023).} Models mesostructural elements in physical resonators and shows how learning these mid-scale interactions sharpens realism in procedural audio engines.
+    \item \textbf{Plug-and-Play Prior for Audio Inverse Problems (PNP) (2023).} Adapts plug-and-play priors to audio, coupling classical optimizers with learned denoisers to recover synthesizer controls under measurement constraints.
+    \item \textbf{Quality-Diversity for Synthesizer Sound Matching (2023).} Frames preset search as a quality-diversity problem, producing diverse high-fidelity matches so sound designers can explore multiple valid timbres.
+    \item \textbf{Differentiable DDSP for Rigid-Body Modal Synthesis (2023).} Extends DDSP blocks with modal synthesis layers, allowing gradients to flow through rigid-body parameterizations for accurate physical matching.
+    \item \textbf{White-Box Parameter Search for Synthesizer Sound Matching (ISMIR-23).} Analyzes white-box search strategies that exploit analytic gradients and domain constraints, yielding faster convergence than black-box optimizers.
+    \item \textbf{Synthesizer Sound Matching as Inverse Problem (PNP-based) (2023).} Casts preset recovery as an inverse problem solved via plug-and-play priors, emphasizing convergence guarantees and perceptual loss integration.
+    \item \textbf{PNP Methods for Audio Inverse Problems (TASLP version) (2023).} Provides the journal extension with deeper theoretical analysis and broader experiments covering reverb inversion and timbre transfer.
+    \item \textbf{White-Box FM Synth Parameter Estimation (2023).} Targets FM engines with analytical gradients, proving that structured Jacobians speed up inversion and reduce timbral error.
+    \item \textbf{DIFFMOOG: A Differentiable Modular Synthesizer for Sound Matching (2024).} Builds a differentiable Moog-style modular synth, enabling end-to-end learning of control voltages that replicate target performances.
+    \item \textbf{PNP Methods for Audio Inverse Problems (TASLP published, 2024).} Summarizes the finalized plug-and-play toolkit, highlighting practical recipes for balancing data fidelity and learned priors in production workflows.
+    \item \textbf{Synthesizer Sound Matching Using Audio Spectrogram Transformers (DAFx-24).} Leverages AST encoders to compare target and synthesized spectrograms, combining transformer attention with differentiable synthesis for improved matches.
+    \item \textbf{Gradient Clipping for Improved Training in DDSP (2025).} Shows that carefully scheduled gradient clipping stabilizes DDSP training, reducing artifacts and enabling deeper architectures.
+    \item \textbf{Recent PNP Methods (Han Han T, 2025).} Surveys and extends plug-and-play techniques for audio restoration and preset inversion, emphasizing modular priors and operator splitting schemes.
+    \item \textbf{Sound Similarity Metrics for Synthesizer Sound Matching (2025).} Evaluates perceptual and differentiable similarity metrics, recommending hybrids that better correlate with human judgments of preset quality.
+    \item \textbf{Differentiable Audio Processing and Synthesis (Hayes, 2025).} Provides a comprehensive overview of differentiable audio processing pipelines, unifying synthesis, effects, and learning-based control under one framework.
+    \item \textbf{Modulation Discovery for DDSP (2025).} Introduces techniques to learn latent modulation routings inside DDSP models, revealing interpretable control signals that improve expressivity.
+\end{enumerate}
+
+\cite{*}
+
+\bibliographystyle{plain}
+\bibliography{References}
+
+\end{document}
