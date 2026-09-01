@@ -23,12 +23,3 @@ __pycache__/
 .env
 *.env
 openclaw.json
-
-# Local research corpus (documented by synth-effect-matching, not redistributed)
-/synth-effect-matching/*.pdf
-/synth-effect-matching/txt/
-/synth-effect-matching/*.aux
-/synth-effect-matching/*.bbl
-/synth-effect-matching/*.blg
-/synth-effect-matching/*.log
-/synth-effect-matching/*.out
