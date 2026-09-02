@@ -4,6 +4,7 @@ workspace/current_run
 workspace/.openclaw/
 workspace/home/
 
+
 # Python
 __pycache__/
 *.pyc
@@ -23,6 +24,8 @@ __pycache__/
 .env
 *.env
 openclaw.json
+COMMIT_MSG.txt
+fable_hints_9thJuly.txt
 
 # Local synth-matching research corpus
 /synth-effect-matching/
